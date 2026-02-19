@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sanare — Therapist Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="therapist.css">
+</head>
+<body>
+
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-ring" id="cursorRing"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">Sanare</div>
+    <div class="sidebar-role-badge">Therapist View</div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active">
+        <span class="nav-icon">🧭</span><span>Sessions</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="nav-icon">📊</span><span>Analytics</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="nav-icon">📝</span><span>Notes</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="nav-icon">🔒</span><span>Privacy Log</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-avatar therapist-av">T</div>
+      <div class="user-info">
+        <span class="user-name">Therapist</span>
+        <span class="user-status" id="therapistStatus">● Online</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Sessions</h1>
+        <p class="page-sub">All identities are encrypted — you only see aliases</p>
+      </div>
+      <div class="topbar-right">
+        <div class="date-chip" id="dateChip"></div>
+        <div class="enc-badge">
+          <span>🔐</span> End-to-end encrypted
+        </div>
+      </div>
+    </header>
+
+    <div class="therapist-grid">
+
+      <!-- LEFT: Patient Queue + Chat -->
+      <div class="sessions-column">
+
+        <!-- Queue -->
+        <div class="t-card" id="queueCard">
+          <div class="t-card-header">
+            <h2 class="t-card-title">Waiting Queue</h2>
+            <span class="queue-count" id="queueCount">0 waiting</span>
+          </div>
+          <div class="queue-list" id="queueList">
+            <div class="queue-empty">
+              <span>🌿</span>
+              <p>No one waiting right now. You'll be notified when someone connects.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Chat -->
+        <div class="t-card" id="activeChatCard">
+          <div class="t-card-header">
+            <div class="active-patient-info">
+              <div class="active-avatar" id="activeAvatar">·</div>
+              <div>
+                <h2 class="t-card-title" id="activeAlias">No active session</h2>
+                <span class="active-since" id="activeSince">Select a patient from the queue</span>
+              </div>
+            </div>
+            <div class="session-actions">
+              <button class="action-btn end-btn" id="endSessionBtn" onclick="endSession()" disabled>End Session</button>
+            </div>
+          </div>
+
+          <div class="chat-window" id="therapistChat">
+            <div class="chat-messages" id="therapistMessages">
+              <div class="msg-system">Connect with a patient to begin a session</div>
+            </div>
+            <div class="chat-input-row" id="therapistInputRow">
+              <input type="text" class="chat-input" id="therapistInput" placeholder="Type your response…" disabled>
+              <button class="send-btn" id="therapistSendBtn" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 2L11 13M22 2L15 22 11 13 2 9l20-7z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: AI Summary + Wellness -->
+      <div class="insights-column">
+
+        <!-- AI Summary Card -->
+        <div class="t-card ai-card">
+          <div class="t-card-header">
+            <div class="ai-icon-wrap">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 2a4 4 0 014 4v1h1a3 3 0 010 6h-1v1a4 4 0 01-8 0v-1H7a3 3 0 010-6h1V6a4 4 0 014-4z"/>
+                <circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="t-card-title">AI Summary</h2>
+              <p class="t-card-sub">Updates live as the session progresses</p>
+            </div>
+            <div class="ai-live-badge" id="aiLiveBadge">
+              <span class="ai-dot"></span> Listening
+            </div>
+          </div>
+
+          <div class="ai-summary-box" id="aiSummaryBox">
+            <p class="ai-placeholder">AI insights will appear here once a session begins…</p>
+          </div>
+
+          <!-- Sentiment Gauge -->
+          <div class="sentiment-section">
+            <span class="metric-label-sm">Emotional Tone</span>
+            <div class="sentiment-bar-wrap">
+              <div class="sentiment-bar" id="sentimentBar" style="width: 50%"></div>
+            </div>
+            <div class="sentiment-labels">
+              <span>Distressed</span><span>Neutral</span><span>Stable</span>
+            </div>
+          </div>
+
+          <!-- Risk flags -->
+          <div class="flags-section" id="flagsSection">
+            <span class="metric-label-sm">Flagged Signals</span>
+            <div class="flags-list" id="flagsList">
+              <span class="flag-chip neutral">No concerns flagged</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wellness Flower (patient's) -->
+        <div class="t-card flower-mini-card">
+          <div class="t-card-header">
+            <h2 class="t-card-title">Patient Wellness</h2>
+            <span class="alias-tag" id="flowerAliasTag">No session</span>
+          </div>
+
+          <div class="flower-wrap-mini">
+            <svg class="flower-svg-mini" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="55" transform="rotate(0 150 150) translate(0 -60)" fill="#A8C5B5" opacity="0.85"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="48" transform="rotate(45 150 150) translate(0 -60)" fill="#B5CCA4" opacity="0.8"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="40" transform="rotate(90 150 150) translate(0 -60)" fill="#C5B5A8" opacity="0.75"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="52" transform="rotate(135 150 150) translate(0 -60)" fill="#A8B5C5" opacity="0.8"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="44" transform="rotate(180 150 150) translate(0 -60)" fill="#C5A8B5" opacity="0.75"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="50" transform="rotate(225 150 150) translate(0 -60)" fill="#A8C5B5" opacity="0.85"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="35" transform="rotate(270 150 150) translate(0 -60)" fill="#B5C5A8" opacity="0.7"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="46" transform="rotate(315 150 150) translate(0 -60)" fill="#A8C5C5" opacity="0.8"/>
+              <path d="M150 185 Q145 220 148 260" stroke="#7A9E8E" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <ellipse cx="140" cy="228" rx="14" ry="8" fill="#A8C5B5" opacity="0.7" transform="rotate(-30 140 228)"/>
+              <circle cx="150" cy="150" r="28" fill="#F5F0E8" stroke="#7A9E8E" stroke-width="2"/>
+              <circle cx="150" cy="150" r="20" fill="#EDE5D4"/>
+              <text x="150" y="146" text-anchor="middle" font-family="Cormorant Garamond" font-size="11" fill="#4A6F61">wellness</text>
+              <text x="150" y="160" text-anchor="middle" font-family="DM Sans" font-size="13" font-weight="500" fill="#2C3830" id="flowerScore">—</text>
+            </svg>
+            <div class="flower-glow"></div>
+          </div>
+
+          <div class="metrics-list-mini" id="metricsMini">
+            <div class="metric-row">
+              <span class="metric-dot" style="background:#A8C5B5"></span>
+              <span class="metric-label">Mood</span>
+              <div class="metric-bar-wrap"><div class="metric-bar" id="mbar-mood" style="width:0%;background:#A8C5B5"></div></div>
+              <span class="metric-val" id="mval-mood">—</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-dot" style="background:#B5CCA4"></span>
+              <span class="metric-label">Sleep</span>
+              <div class="metric-bar-wrap"><div class="metric-bar" id="mbar-sleep" style="width:0%;background:#B5CCA4"></div></div>
+              <span class="metric-val" id="mval-sleep">—</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-dot" style="background:#C5B5A8"></span>
+              <span class="metric-label">Anxiety</span>
+              <div class="metric-bar-wrap"><div class="metric-bar" id="mbar-anxiety" style="width:0%;background:#C5B5A8"></div></div>
+              <span class="metric-val" id="mval-anxiety">—</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-dot" style="background:#C5A8B5"></span>
+              <span class="metric-label">Energy</span>
+              <div class="metric-bar-wrap"><div class="metric-bar" id="mbar-energy" style="width:0%;background:#C5A8B5"></div></div>
+              <span class="metric-val" id="mval-energy">—</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Session Notes -->
+        <div class="t-card notes-card">
+          <div class="t-card-header">
+            <h2 class="t-card-title">Session Notes</h2>
+            <button class="save-notes-btn" id="saveNotesBtn">Save</button>
+          </div>
+          <textarea class="notes-area" id="notesArea" placeholder="Private notes — never shared with patient…" disabled></textarea>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="therapist.js"></script>
+</body>
+</html>

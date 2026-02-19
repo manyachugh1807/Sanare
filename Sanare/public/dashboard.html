@@ -1,27 +1,271 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sanare — Your Space</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
-    Ashu
-    
-</body>
-<script>
-  const txId = localStorage.getItem("txId");
-  const assetId = localStorage.getItem("assetId");
 
-  if (txId) {
-    document.body.innerHTML += `
-      <div style="padding:20px">
-        <h2>Token Created Successfully</h2>
-        <p><strong>Transaction ID:</strong> ${txId}</p>
-        <p><strong>Asset ID:</strong> ${assetId || "Not available"}</p>
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-ring" id="cursorRing"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">Sanare</div>
+    <nav class="sidebar-nav">
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">🏠</span><span>Home</span>
+      </a>
+      <a href="#" class="nav-item active">
+        <span class="nav-icon">🧭</span><span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="nav-icon">📓</span><span>Journal</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="nav-icon">🌬️</span><span>Breathe</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="nav-icon">🎵</span><span>Sounds</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-avatar" id="avatarInitial">·</div>
+      <div class="user-info">
+        <span class="user-name" id="aliasDisplay">Anonymous</span>
+        <span class="user-status" id="connStatus">● Connecting…</span>
       </div>
-    `;
-  }
-</script>
+    </div>
+  </aside>
 
+  <!-- MAIN -->
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Your Space</h1>
+        <p class="page-sub">Choose how you'd like to be heard today</p>
+      </div>
+      <div class="topbar-right">
+        <div class="date-chip" id="dateChip"></div>
+        <button class="mood-btn" id="moodBtn">How are you feeling?</button>
+      </div>
+    </header>
+
+    <div class="content-grid">
+
+      <!-- CHAT COLUMN -->
+      <div class="chat-column">
+
+        <!-- Talk to Human -->
+        <div class="chat-card" id="humanCard">
+          <div class="chat-card-header">
+            <div class="chat-card-icon human-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="chat-card-title">Talk to a Human</h2>
+              <p class="chat-card-sub">Connect with a real therapist — your identity stays private</p>
+            </div>
+            <div class="online-badge">
+              <span class="online-dot"></span> <span id="therapistCount">checking…</span>
+            </div>
+          </div>
+
+          <div class="privacy-note">
+            <span>🔒</span>
+            <p>You appear as <strong id="aliasInNote">…</strong> to your therapist. No real name is ever shared.</p>
+          </div>
+
+          <div class="chat-window hidden" id="humanChat">
+            <div class="chat-messages" id="humanMessages">
+              <div class="msg msg-them">
+                <div class="msg-bubble">Hello 🌿 I'm your listener today. Take your time — this is a safe space.</div>
+                <span class="msg-time">now</span>
+              </div>
+            </div>
+            <div class="chat-input-row">
+              <input type="text" class="chat-input" id="humanInput" placeholder="Type something…">
+              <button class="send-btn" id="humanSendBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 2L11 13M22 2L15 22 11 13 2 9l20-7z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button class="chat-toggle-btn human-btn" id="humanToggle">
+            <span class="btn-icon">💬</span> Start Conversation
+          </button>
+        </div>
+
+        <!-- Talk to Robo -->
+        <div class="chat-card" id="roboCard">
+          <div class="chat-card-header">
+            <div class="chat-card-icon robo-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="8" width="18" height="12" rx="3"/>
+                <path d="M9 8V6a3 3 0 016 0v2"/>
+                <circle cx="9" cy="14" r="1.5"/><circle cx="15" cy="14" r="1.5"/>
+                <path d="M9 17.5h6"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="chat-card-title">Talk to Robo</h2>
+              <p class="chat-card-sub">AI-powered, always available, judgment-free</p>
+            </div>
+            <div class="online-badge robo-badge">
+              <span class="online-dot robo-dot"></span> Always on
+            </div>
+          </div>
+
+          <div class="robo-features">
+            <span class="feature-chip">🧠 CBT techniques</span>
+            <span class="feature-chip">🌙 24/7 available</span>
+            <span class="feature-chip">🔒 Fully private</span>
+            <span class="feature-chip">🌱 Mood tracking</span>
+          </div>
+
+          <div class="chat-window hidden" id="roboChat">
+            <div class="chat-messages" id="roboMessages">
+              <div class="msg msg-them">
+                <div class="msg-bubble robo-bubble">Hello 🤖 I'm your Sanare companion. I'm here to listen and support you. How are you feeling right now?</div>
+                <span class="msg-time">now</span>
+              </div>
+            </div>
+            <div class="chat-input-row">
+              <input type="text" class="chat-input" id="roboInput" placeholder="Share anything…">
+              <button class="send-btn robo-send" id="roboSendBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 2L11 13M22 2L15 22 11 13 2 9l20-7z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button class="chat-toggle-btn robo-btn" id="roboToggle">
+            <span class="btn-icon">🤖</span> Talk to Robo
+          </button>
+        </div>
+
+      </div>
+
+      <!-- FLOWER COLUMN -->
+      <div class="flower-column">
+        <div class="flower-card">
+          <div class="flower-header">
+            <span class="section-label">Wellness Garden</span>
+            <h2 class="flower-title">Your Growth</h2>
+            <p class="flower-sub">Blooms as you heal</p>
+          </div>
+
+          <div class="flower-wrap">
+            <svg class="flower-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" id="flowerSvg">
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="55" transform="rotate(0 150 150) translate(0 -60)" fill="#A8C5B5" opacity="0.85"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="48" transform="rotate(45 150 150) translate(0 -60)" fill="#B5CCA4" opacity="0.8"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="40" transform="rotate(90 150 150) translate(0 -60)" fill="#C5B5A8" opacity="0.75"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="52" transform="rotate(135 150 150) translate(0 -60)" fill="#A8B5C5" opacity="0.8"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="44" transform="rotate(180 150 150) translate(0 -60)" fill="#C5A8B5" opacity="0.75"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="50" transform="rotate(225 150 150) translate(0 -60)" fill="#A8C5B5" opacity="0.85"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="35" transform="rotate(270 150 150) translate(0 -60)" fill="#B5C5A8" opacity="0.7"/>
+              <ellipse class="petal" cx="150" cy="150" rx="18" ry="46" transform="rotate(315 150 150) translate(0 -60)" fill="#A8C5C5" opacity="0.8"/>
+              <path d="M150 185 Q145 220 148 260" stroke="#7A9E8E" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <ellipse cx="140" cy="228" rx="14" ry="8" fill="#A8C5B5" opacity="0.7" transform="rotate(-30 140 228)"/>
+              <circle cx="150" cy="150" r="28" fill="#F5F0E8" stroke="#7A9E8E" stroke-width="2"/>
+              <circle cx="150" cy="150" r="20" fill="#EDE5D4"/>
+              <text x="150" y="146" text-anchor="middle" font-family="Cormorant Garamond" font-size="11" fill="#4A6F61">feeling</text>
+              <text x="150" y="160" text-anchor="middle" font-family="DM Sans" font-size="13" font-weight="500" fill="#2C3830" id="centerScore">72%</text>
+            </svg>
+            <div class="flower-glow"></div>
+          </div>
+
+          <div class="metrics-list">
+            <div class="metric-row">
+              <span class="metric-dot" style="background:#A8C5B5"></span>
+              <span class="metric-label">Mood</span>
+              <div class="metric-bar-wrap"><div class="metric-bar" style="width:78%;background:#A8C5B5"></div></div>
+              <span class="metric-val">78%</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-dot" style="background:#B5CCA4"></span>
+              <span class="metric-label">Sleep</span>
+              <div class="metric-bar-wrap"><div class="metric-bar" style="width:65%;background:#B5CCA4"></div></div>
+              <span class="metric-val">65%</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-dot" style="background:#C5B5A8"></span>
+              <span class="metric-label">Anxiety</span>
+              <div class="metric-bar-wrap"><div class="metric-bar" style="width:55%;background:#C5B5A8"></div></div>
+              <span class="metric-val">55%</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-dot" style="background:#A8B5C5"></span>
+              <span class="metric-label">Social</span>
+              <div class="metric-bar-wrap"><div class="metric-bar" style="width:82%;background:#A8B5C5"></div></div>
+              <span class="metric-val">82%</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-dot" style="background:#C5A8B5"></span>
+              <span class="metric-label">Energy</span>
+              <div class="metric-bar-wrap"><div class="metric-bar" style="width:60%;background:#C5A8B5"></div></div>
+              <span class="metric-val">60%</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-dot" style="background:#B5C5A8"></span>
+              <span class="metric-label">Self-care</span>
+              <div class="metric-bar-wrap"><div class="metric-bar" style="width:70%;background:#B5C5A8"></div></div>
+              <span class="metric-val">70%</span>
+            </div>
+          </div>
+
+          <div class="status-msg" id="statusMsg">
+            <span class="status-icon">🌿</span>
+            <p>You're on the right track. Your flower is gently blooming — keep showing up for yourself.</p>
+          </div>
+
+          <div class="trend-row">
+            <span class="trend-label">This week</span>
+            <div class="trend-bars">
+              <div class="trend-bar" style="height:40%"></div>
+              <div class="trend-bar" style="height:55%"></div>
+              <div class="trend-bar" style="height:50%"></div>
+              <div class="trend-bar" style="height:65%"></div>
+              <div class="trend-bar" style="height:60%"></div>
+              <div class="trend-bar" style="height:72%"></div>
+              <div class="trend-bar active" style="height:78%"></div>
+            </div>
+            <div class="trend-days">
+              <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Mood Modal -->
+  <div class="mood-modal hidden" id="moodModal">
+    <div class="mood-modal-box">
+      <h3 class="mood-modal-title">How are you feeling right now?</h3>
+      <p class="mood-modal-sub">Your answer helps your flower grow</p>
+      <div class="mood-options">
+        <button class="mood-opt" onclick="selectMood('🌧️','Struggling',30)">🌧️<span>Struggling</span></button>
+        <button class="mood-opt" onclick="selectMood('😶','Numb',45)">😶<span>Numb</span></button>
+        <button class="mood-opt" onclick="selectMood('🌤️','Okay',62)">🌤️<span>Okay</span></button>
+        <button class="mood-opt" onclick="selectMood('😌','Calm',75)">😌<span>Calm</span></button>
+        <button class="mood-opt" onclick="selectMood('🌸','Thriving',90)">🌸<span>Thriving</span></button>
+      </div>
+      <button class="mood-close" onclick="closeMood()">Maybe later</button>
+    </div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="dashboard.js"></script>
+</body>
 </html>
