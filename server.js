@@ -9,31 +9,141 @@ const app    = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  },
+  cors: { origin: "*", methods: ["GET", "POST"] },
   transports: ["websocket", "polling"]
 });
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "Sanare", "public")));
 
+// ─── Page routes ───
 app.get("/",          (req, res) => res.sendFile(path.join(__dirname, "Sanare", "public", "index.html")));
 app.get("/dashboard", (req, res) => res.sendFile(path.join(__dirname, "Sanare", "public", "dashboard.html")));
 app.get("/therapist", (req, res) => res.sendFile(path.join(__dirname, "Sanare", "public", "therapist.html")));
 
+// ─── Mock token mint ───
 app.post("/create-token", (req, res) => {
   res.json({ success: true, txId: "TEST_TX_123", assetId: "TEST_ASSET_456" });
 });
 
 // ─────────────────────────────────────────
+// OPENROUTER PROXY — keeps API key server-side
+// dashboard.js calls POST /api/robo
+// ─────────────────────────────────────────
+app.post("/api/robo", async (req, res) => {
+
+  if (!process.env.OPENROUTER_KEY) {
+    console.error("❌ OPENROUTER_KEY missing from .env");
+    return res.status(500).json({ error: "API key not configured" });
+  }
+
+  const { messages } = req.body;
+
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: "messages array required" });
+  }
+
+  try {
+
+    // 🌿 MindMint System Personality
+    const systemPrompt = {
+      role: "system",
+      content: `
+You are Sanare AI, a privacy-first emotional triage assistant.
+
+Tone:
+- Calm
+- Soft
+- Non-judgmental
+- Supportive
+- Never clinical or cold
+
+Rules:
+- Do NOT diagnose medical conditions.
+- Do NOT prescribe medication.
+- Encourage professional help if risk appears.
+- Preserve emotional meaning.
+- Be concise and structured.
+
+Return output ONLY in this JSON format:
+
+{
+  "summary": "short emotional summary",
+  "primary_emotion": "one word",
+  "mood_score": 1-10,
+  "risk_level": "low | medium | high",
+  "supportive_response": "gentle supportive message"
+}
+
+Risk detection:
+- If suicidal intent or self-harm intent appears → risk_level = "high"
+- Encourage immediate professional support in that case.
+`
+    };
+
+    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENROUTER_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "Sanare",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o",
+        messages: [systemPrompt, ...messages],
+        max_tokens: 400,
+        temperature: 0.6,   // calmer output
+        stream: true
+      }),
+    });
+
+    if (!upstream.ok) {
+      const errText = await upstream.text();
+      console.error(`❌ OpenRouter ${upstream.status}:`, errText);
+      return res.status(502).json({ error: `OpenRouter error: ${upstream.status}` });
+    }
+
+    // 🌊 Stream response
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+
+    const reader = upstream.body.getReader();
+
+    const pump = async () => {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          res.end();
+          break;
+        }
+        res.write(value);
+      }
+    };
+
+    pump().catch(err => {
+      console.error("Stream pump error:", err);
+      res.end();
+    });
+
+    req.on("close", () => reader.cancel());
+
+  } catch (err) {
+    console.error("❌ /api/robo fetch error:", err.message);
+    res.status(500).json({ error: "Server error — check console" });
+  }
+});
+
+
+// ─────────────────────────────────────────
 // GLOBAL STATE
 // ─────────────────────────────────────────
-const patients   = new Map(); // patientId → { socketId, alias, color, mood, joinedAt }
-const therapists = new Set(); // Set of therapist socketIds
-const queue      = new Map(); // patientId → queue entry
-const sessions   = new Map(); // patientId → therapistSocketId
+const patients   = new Map();
+const therapists = new Set();
+const queue      = new Map();
+const sessions   = new Map();
 
 // ─────────────────────────────────────────
 // SOCKET LOGIC
@@ -42,11 +152,9 @@ io.on("connection", (socket) => {
   console.log("🟢 Connected:", socket.id);
 
   // ── PATIENT JOIN ──
-  // dashboard.js emits: socket.emit('patient_join', { patientId, alias, color })
   socket.on("patient_join", (data) => {
     socket.role      = "patient";
     socket.patientId = data.patientId;
-
     patients.set(data.patientId, {
       socketId: socket.id,
       alias:    data.alias,
@@ -54,14 +162,11 @@ io.on("connection", (socket) => {
       mood:     null,
       joinedAt: Date.now(),
     });
-
-    // ✅ FIX 1: Tell this patient how many therapists are currently online
     socket.emit("therapist_count", { count: therapists.size });
-    console.log(`👤 Patient joined: ${data.alias} (hashed: ${data.patientId})`);
+    console.log(`👤 Patient joined: ${data.alias}`);
   });
 
   // ── PATIENT QUEUE ──
-  // dashboard.js emits: socket.emit('patient_queue', { patientId, alias, color, mood })
   socket.on("patient_queue", (data) => {
     queue.set(data.patientId, {
       id:       data.patientId,
@@ -70,108 +175,67 @@ io.on("connection", (socket) => {
       mood:     data.mood || null,
       joinedAt: Date.now(),
     });
-
     const position = [...queue.keys()].indexOf(data.patientId) + 1;
     socket.emit("queue_position", { position });
-
-    console.log(`📋 Patient queued: ${data.alias} at position ${position}`);
-    console.log(`📡 Therapists online: ${therapists.size} — broadcasting queue of ${queue.size} to them`);
-    therapists.forEach(id => console.log(`   → sending to therapist socket: ${id}`));
-
+    console.log(`📋 Patient queued: ${data.alias} at #${position}`);
     broadcastQueue();
   });
 
   // ── THERAPIST JOIN ──
-  // therapist.js emits: socket.emit('therapist_join')
   socket.on("therapist_join", () => {
     socket.role = "therapist";
     therapists.add(socket.id);
-
-    // Send current queue state to the newly joined therapist
     socket.emit("queue_update", { queue: buildQueue() });
-
-    // ✅ FIX 2: Broadcast updated therapist count to ALL patients
     broadcastPatients("therapist_count", { count: therapists.size });
     console.log(`🩺 Therapist joined. Total: ${therapists.size}`);
   });
 
   // ── ACCEPT SESSION ──
-  // therapist.js emits: socket.emit('therapist_accept', { patientId })
   socket.on("therapist_accept", ({ patientId }) => {
     const patient = patients.get(patientId);
-    if (!patient) {
-      console.warn(`⚠️ therapist_accept: patient ${patientId} not found`);
-      return;
-    }
-
+    if (!patient) return;
     queue.delete(patientId);
     sessions.set(patientId, socket.id);
     socket.activePatientId = patientId;
-
-    // Tell the patient their session was accepted
     io.to(patient.socketId).emit("session_accepted");
     broadcastQueue();
-    console.log(`✅ Session accepted: therapist ${socket.id} ↔ patient ${patient.alias}`);
+    console.log(`✅ Session: therapist ${socket.id} ↔ ${patient.alias}`);
   });
 
-  // ── PATIENT → THERAPIST MESSAGE ──
-  // dashboard.js emits: socket.emit('patient_message', { patientId, alias, message })
+  // ── PATIENT → THERAPIST ──
   socket.on("patient_message", (data) => {
     const therapistId = sessions.get(data.patientId);
-    if (therapistId) {
-      io.to(therapistId).emit("patient_message", data);
-    }
+    if (therapistId) io.to(therapistId).emit("patient_message", data);
   });
 
-  // ── THERAPIST → PATIENT MESSAGE ──
-  // therapist.js emits: socket.emit('therapist_message', { patientId, message })
+  // ── THERAPIST → PATIENT ──
   socket.on("therapist_message", (data) => {
     const patient = patients.get(data.patientId);
-    if (patient) {
-      io.to(patient.socketId).emit("therapist_message", { message: data.message });
-    }
+    if (patient) io.to(patient.socketId).emit("therapist_message", { message: data.message });
   });
 
   // ── MOOD UPDATE ──
-  // dashboard.js emits: socket.emit('mood_update', { patientId, score, label })
   socket.on("mood_update", (data) => {
-    // Update stored mood
     const p = patients.get(data.patientId);
     if (p) p.mood = data.label;
-
-    // Forward to therapist if in session
     const therapistId = sessions.get(data.patientId);
-    if (therapistId) {
-      io.to(therapistId).emit("mood_update", data);
-    }
+    if (therapistId) io.to(therapistId).emit("mood_update", data);
   });
 
   // ── THERAPIST ENDS SESSION ──
-  // ✅ FIX 3: This handler was MISSING from server — therapist.js emits this but server never listened
-  // therapist.js emits: socket.emit('therapist_end_session', { patientId })
   socket.on("therapist_end_session", ({ patientId }) => {
     const patient = patients.get(patientId);
-    if (patient) {
-      // ✅ Tell the patient their session ended — dashboard.js listens for 'session_ended_by_therapist'
-      io.to(patient.socketId).emit("session_ended_by_therapist");
-      console.log(`🔚 Therapist ended session with ${patient.alias}`);
-    }
-
+    if (patient) io.to(patient.socketId).emit("session_ended_by_therapist");
     sessions.delete(patientId);
     socket.activePatientId = null;
     broadcastQueue();
+    console.log(`🔚 Therapist ended session with ${patientId}`);
   });
 
   // ── PATIENT ENDS SESSION ──
-  // ✅ FIX 4: This was missing too — if patient closes chat, therapist should be notified
-  // dashboard.js should emit this if you want to notify therapist (see note below)
   socket.on("patient_end_session", ({ patientId }) => {
     const therapistId = sessions.get(patientId);
-    if (therapistId) {
-      // ✅ therapist.js listens for 'session_ended_by_patient'
-      io.to(therapistId).emit("session_ended_by_patient", { patientId });
-      console.log(`🔚 Patient ended session: ${patientId}`);
-    }
+    if (therapistId) io.to(therapistId).emit("session_ended_by_patient", { patientId });
     sessions.delete(patientId);
     queue.delete(patientId);
     broadcastQueue();
@@ -179,32 +243,22 @@ io.on("connection", (socket) => {
 
   // ── DISCONNECT ──
   socket.on("disconnect", () => {
-    console.log("🔴 Disconnected:", socket.id, `(role: ${socket.role})`);
+    console.log("🔴 Disconnected:", socket.id, `(${socket.role})`);
 
     if (socket.role === "therapist") {
       therapists.delete(socket.id);
-
-      // ✅ FIX 5: If therapist had an active session, notify the patient
       if (socket.activePatientId) {
         const patient = patients.get(socket.activePatientId);
-        if (patient) {
-          io.to(patient.socketId).emit("session_ended_by_therapist");
-        }
+        if (patient) io.to(patient.socketId).emit("session_ended_by_therapist");
         sessions.delete(socket.activePatientId);
       }
-
-      // Tell all patients updated therapist count
       broadcastPatients("therapist_count", { count: therapists.size });
       broadcastQueue();
     }
 
     if (socket.role === "patient" && socket.patientId) {
       const therapistId = sessions.get(socket.patientId);
-      if (therapistId) {
-        // ✅ Tell therapist this patient disconnected
-        io.to(therapistId).emit("session_ended_by_patient", { patientId: socket.patientId });
-      }
-
+      if (therapistId) io.to(therapistId).emit("session_ended_by_patient", { patientId: socket.patientId });
       queue.delete(socket.patientId);
       sessions.delete(socket.patientId);
       patients.delete(socket.patientId);
@@ -228,36 +282,36 @@ function buildQueue() {
 
 function broadcastQueue() {
   const q = buildQueue();
-  therapists.forEach(id => {
-    io.to(id).emit("queue_update", { queue: q });
-  });
-
-  // Also update each queued patient's position
+  therapists.forEach(id => io.to(id).emit("queue_update", { queue: q }));
   [...queue.keys()].forEach((patientId, index) => {
     const patient = patients.get(patientId);
-    if (patient) {
-      io.to(patient.socketId).emit("queue_position", { position: index + 1 });
-    }
+    if (patient) io.to(patient.socketId).emit("queue_position", { position: index + 1 });
   });
 }
 
 function broadcastPatients(event, data) {
-  patients.forEach(p => {
-    io.to(p.socketId).emit(event, data);
-  });
+  patients.forEach(p => io.to(p.socketId).emit(event, data));
 }
 
 function formatWait(joinedAt) {
   const s = Math.floor((Date.now() - joinedAt) / 1000);
-  if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}m ${s % 60}s`;
+  return s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
 }
 
 // ─────────────────────────────────────────
 // START
 // ─────────────────────────────────────────
 server.listen(3000, "0.0.0.0", () => {
-  console.log("🚀 Sanare server running:");
-  console.log("   Local:   http://localhost:3000");
-  console.log("   Network: http://YOUR_LOCAL_IP:3000");
+  const { networkInterfaces } = require("os");
+  const nets = networkInterfaces();
+  let localIP = "YOUR_LOCAL_IP";
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === "IPv4" && !net.internal) localIP = net.address;
+    }
+  }
+  console.log("🚀 Sanare running:");
+  console.log(`   Local:  http://localhost:3000`);
+  console.log(`   Phone:  http://${localIP}:3000`);
+  console.log(`   Robo:   ${process.env.OPENROUTER_KEY ? "✅ API key found" : "❌ OPENROUTER_KEY missing from .env"}`);
 });

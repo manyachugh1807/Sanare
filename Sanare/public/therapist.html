@@ -8,27 +8,315 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="therapist.css">
+  <style>
+  /* ─── PANEL BACKDROP ─── */
+  .panel-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(20,35,28,0.45);
+    backdrop-filter: blur(4px);
+    z-index: 100; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .panel-backdrop.open { opacity: 1; pointer-events: all; }
+
+  /* ─── SIDE PANEL ─── */
+  .side-panel {
+    position: fixed; top: 0; right: 0;
+    width: 480px; max-width: 95vw; height: 100vh;
+    background: var(--white, #FDFCFA);
+    z-index: 101; display: flex; flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.38s cubic-bezier(0.22,1,0.36,1);
+    box-shadow: -8px 0 48px rgba(44,56,48,0.18);
+    border-left: 1px solid rgba(122,158,142,0.15);
+  }
+  .side-panel.open { transform: translateX(0); }
+
+  .panel-header {
+    display: flex; align-items: flex-start;
+    justify-content: space-between;
+    padding: 32px 32px 24px;
+    border-bottom: 1px solid rgba(122,158,142,0.12);
+    flex-shrink: 0;
+  }
+  .panel-eyebrow {
+    font-size: 10px; font-weight: 500; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--sage,#7A9E8E);
+    display: block; margin-bottom: 5px;
+  }
+  .panel-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 30px; font-weight: 300; font-style: italic;
+    color: var(--text,#2C3830); line-height: 1;
+  }
+  .panel-close {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid rgba(122,158,142,0.2); background: transparent;
+    color: var(--text-soft,#5A7060); font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; flex-shrink: 0; margin-top: 4px;
+  }
+  .panel-close:hover { background: var(--mist,#D4E4DE); color: var(--text,#2C3830); }
+
+  .panel-body {
+    flex: 1; overflow-y: auto; padding: 28px 32px;
+    display: flex; flex-direction: column; gap: 28px;
+    scrollbar-width: thin; scrollbar-color: var(--mist,#D4E4DE) transparent;
+  }
+  .panel-section { display: flex; flex-direction: column; gap: 14px; }
+  .panel-section-title {
+    font-family: 'Cormorant Garamond', serif; font-size: 16px;
+    font-weight: 400; color: var(--text-soft,#5A7060);
+    border-bottom: 1px solid var(--cream-deep,#EDE5D4); padding-bottom: 8px;
+  }
+
+  /* ─── ANALYTICS ─── */
+  .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stat-tile {
+    background: var(--cream,#F5F0E8); border-radius: 14px; padding: 20px 18px;
+    display: flex; flex-direction: column; gap: 5px;
+    border: 1px solid rgba(122,158,142,0.1);
+  }
+  .stat-val {
+    font-family: 'Cormorant Garamond',serif; font-size: 36px;
+    font-weight: 300; color: #3D6B5E; line-height: 1;
+  }
+  .stat-label { font-size: 11px; color: var(--text-soft,#5A7060); text-transform: uppercase; letter-spacing: 0.08em; }
+  .mood-breakdown { display: flex; flex-direction: column; gap: 10px; }
+  .mood-row-an { display: flex; align-items: center; gap: 8px; }
+  .mood-emoji { font-size: 14px; width: 20px; }
+  .mood-name-an { width: 70px; color: var(--text-soft,#5A7060); font-size: 12px; }
+  .mood-track-an { flex:1; height: 7px; background: var(--cream-deep,#EDE5D4); border-radius: 4px; overflow: hidden; }
+  .mood-fill-an { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+  .mood-pct-an { width: 30px; text-align: right; font-size: 11px; color: var(--text-soft,#5A7060); font-weight: 500; }
+  .theme-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .theme-chip { padding: 5px 12px; background: var(--mist,#D4E4DE); border-radius: 20px; font-size: 12px; color: #3D6B5E; font-weight: 500; }
+  .timeline { display: flex; flex-direction: column; }
+  .timeline-empty { font-size: 13px; color: var(--text-soft,#5A7060); font-style: italic; padding: 12px 0; }
+  .timeline-item { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--cream-deep,#EDE5D4); }
+  .timeline-item:last-child { border-bottom: none; }
+  .tl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sage,#7A9E8E); margin-top: 5px; flex-shrink: 0; }
+  .tl-alias { font-size: 13px; font-weight: 500; color: var(--text,#2C3830); }
+  .tl-meta { font-size: 11px; color: var(--text-soft,#5A7060); margin-top: 2px; }
+
+  /* ─── NOTES ─── */
+  .notes-info-banner {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--cream,#F5F0E8); border: 1px solid rgba(122,158,142,0.15);
+    border-radius: 12px; padding: 14px 16px; font-size: 12px;
+    color: var(--text-soft,#5A7060); line-height: 1.6;
+  }
+  .notes-info-banner span { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .notes-session-header { display: flex; align-items: center; justify-content: space-between; }
+  .notes-alias-tag { font-size: 11px; font-weight: 500; color: #3D6B5E; background: var(--mist,#D4E4DE); padding: 4px 10px; border-radius: 20px; }
+  .notes-textarea {
+    width: 100%; min-height: 160px; border: 1.5px solid rgba(122,158,142,0.2);
+    border-radius: 12px; background: var(--cream,#F5F0E8); padding: 14px 16px;
+    font-family: 'DM Sans',sans-serif; font-size: 13px; color: var(--text,#2C3830);
+    resize: vertical; outline: none; transition: border-color 0.2s; line-height: 1.7;
+  }
+  .notes-textarea:focus { border-color: var(--sage,#7A9E8E); background: var(--white,#FDFCFA); }
+  .notes-textarea::placeholder { color: var(--text-soft,#5A7060); opacity: 0.6; }
+  .notes-actions { display: flex; gap: 10px; }
+  .notes-save-btn {
+    padding: 10px 22px; border-radius: 10px; background: #3D6B5E; color: white;
+    border: none; font-family: 'DM Sans',sans-serif; font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .notes-save-btn:hover { background: var(--sage-dark,#4A6F61); }
+  .notes-clear-btn {
+    padding: 10px 18px; border-radius: 10px; background: transparent;
+    color: var(--text-soft,#5A7060); border: 1px solid rgba(122,158,142,0.2);
+    font-family: 'DM Sans',sans-serif; font-size: 13px; cursor: pointer; transition: all 0.2s;
+  }
+  .notes-clear-btn:hover { border-color: var(--sage,#7A9E8E); color: var(--text,#2C3830); }
+  .prev-notes-list { display: flex; flex-direction: column; gap: 10px; }
+  .notes-empty { font-size: 13px; color: var(--text-soft,#5A7060); font-style: italic; padding: 8px 0; }
+  .prev-note-item { background: var(--cream,#F5F0E8); border-radius: 12px; padding: 14px 16px; border: 1px solid rgba(122,158,142,0.1); }
+  .prev-note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .prev-note-alias { font-size: 12px; font-weight: 500; color: #3D6B5E; }
+  .prev-note-time { font-size: 10px; color: var(--text-soft,#5A7060); }
+  .prev-note-text { font-size: 12px; color: var(--text,#2C3830); line-height: 1.6; white-space: pre-wrap; }
+
+  /* ─── PRIVACY ─── */
+  .privacy-pledge {
+    background: linear-gradient(135deg,#3D6B5E 0%,#4A6F61 100%);
+    border-radius: 16px; padding: 24px 22px; color: white;
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+  .pledge-icon { font-size: 28px; flex-shrink: 0; }
+  .privacy-pledge p { font-size: 13px; line-height: 1.7; opacity: 0.92; }
+  .privacy-steps { display: flex; flex-direction: column; gap: 16px; }
+  .privacy-step { display: flex; gap: 16px; align-items: flex-start; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--mist,#D4E4DE); color: #3D6B5E;
+    font-size: 12px; font-weight: 700; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+  }
+  .privacy-step strong { font-size: 13px; font-weight: 500; color: var(--text,#2C3830); display: block; margin-bottom: 3px; }
+  .privacy-step p { font-size: 12px; color: var(--text-soft,#5A7060); line-height: 1.6; }
+  .privacy-step code { font-size: 11px; background: var(--cream-deep,#EDE5D4); padding: 1px 5px; border-radius: 4px; color: #3D6B5E; }
+  .privacy-log-list {
+    display: flex; flex-direction: column;
+    border: 1px solid rgba(122,158,142,0.12); border-radius: 12px; overflow: hidden;
+    max-height: 300px; overflow-y: auto;
+  }
+  .log-entry {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-bottom: 1px solid rgba(122,158,142,0.08); font-size: 12px;
+    animation: logSlide 0.25s ease;
+  }
+  @keyframes logSlide { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:translateX(0)} }
+  .log-entry:last-child { border-bottom: none; }
+  .log-entry:nth-child(even) { background: var(--cream,#F5F0E8); }
+  .log-time { color: var(--sage,#7A9E8E); font-size: 10px; min-width: 60px; flex-shrink: 0; }
+  .log-event { flex: 1; color: var(--text,#2C3830); }
+  .log-badge { padding: 2px 8px; border-radius: 8px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; flex-shrink: 0; }
+  .log-badge.safe { background: #D5F5E3; color: #1E8449; }
+  .log-badge.info { background: var(--mist,#D4E4DE); color: #3D6B5E; }
+  .log-badge.warn { background: #FEF9E7; color: #B7770D; }
+  .privacy-stat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .privacy-stat { background: var(--cream,#F5F0E8); border-radius: 12px; padding: 16px 14px; text-align: center; border: 1px solid rgba(122,158,142,0.1); }
+  .pstat-val { font-family: 'Cormorant Garamond',serif; font-size: 26px; font-weight: 300; color: #3D6B5E; display: block; line-height: 1; margin-bottom: 4px; }
+  .pstat-label { font-size: 10px; color: var(--text-soft,#5A7060); text-transform: uppercase; letter-spacing: 0.08em; }
+  </style>
 </head>
 <body>
 
   <div class="cursor" id="cursor"></div>
   <div class="cursor-ring" id="cursorRing"></div>
 
+  <!-- PANEL BACKDROP -->
+  <div class="panel-backdrop" id="panelBackdrop" onclick="closePanel()"></div>
+
+  <!-- ── ANALYTICS PANEL ── -->
+  <div class="side-panel" id="panel-analytics">
+    <div class="panel-header">
+      <div>
+        <span class="panel-eyebrow">Session Insights</span>
+        <h2 class="panel-title">Analytics</h2>
+      </div>
+      <button class="panel-close" onclick="closePanel()">✕</button>
+    </div>
+    <div class="panel-body">
+      <div class="analytics-grid">
+        <div class="stat-tile"><span class="stat-val" id="an-sessions">0</span><span class="stat-label">Sessions today</span></div>
+        <div class="stat-tile"><span class="stat-val" id="an-avgdur">—</span><span class="stat-label">Avg duration</span></div>
+        <div class="stat-tile"><span class="stat-val" id="an-queue">0</span><span class="stat-label">Queued now</span></div>
+        <div class="stat-tile"><span class="stat-val" id="an-flags">0</span><span class="stat-label">Flags raised</span></div>
+      </div>
+      <div class="panel-section">
+        <h3 class="panel-section-title">Mood Distribution</h3>
+        <div class="mood-breakdown">
+          <div class="mood-row-an"><span class="mood-emoji">🌧️</span><span class="mood-name-an">Struggling</span><div class="mood-track-an"><div class="mood-fill-an" id="mf-struggling" style="width:0%;background:#E74C3C"></div></div><span class="mood-pct-an" id="mp-struggling">0%</span></div>
+          <div class="mood-row-an"><span class="mood-emoji">😶</span><span class="mood-name-an">Numb</span><div class="mood-track-an"><div class="mood-fill-an" id="mf-numb" style="width:0%;background:#E67E22"></div></div><span class="mood-pct-an" id="mp-numb">0%</span></div>
+          <div class="mood-row-an"><span class="mood-emoji">🌤️</span><span class="mood-name-an">Okay</span><div class="mood-track-an"><div class="mood-fill-an" id="mf-okay" style="width:0%;background:#3498DB"></div></div><span class="mood-pct-an" id="mp-okay">0%</span></div>
+          <div class="mood-row-an"><span class="mood-emoji">😌</span><span class="mood-name-an">Calm</span><div class="mood-track-an"><div class="mood-fill-an" id="mf-calm" style="width:0%;background:#27AE60"></div></div><span class="mood-pct-an" id="mp-calm">0%</span></div>
+          <div class="mood-row-an"><span class="mood-emoji">🌸</span><span class="mood-name-an">Thriving</span><div class="mood-track-an"><div class="mood-fill-an" id="mf-thriving" style="width:0%;background:#1ABC9C"></div></div><span class="mood-pct-an" id="mp-thriving">0%</span></div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <h3 class="panel-section-title">Common Themes</h3>
+        <div class="theme-chips" id="an-themes"><span class="theme-chip">No sessions yet</span></div>
+      </div>
+      <div class="panel-section">
+        <h3 class="panel-section-title">Session Timeline</h3>
+        <div class="timeline" id="an-timeline"><div class="timeline-empty">No sessions recorded yet today.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NOTES PANEL ── -->
+  <div class="side-panel" id="panel-notes">
+    <div class="panel-header">
+      <div>
+        <span class="panel-eyebrow">Private & Secure</span>
+        <h2 class="panel-title">Session Notes</h2>
+      </div>
+      <button class="panel-close" onclick="closePanel()">✕</button>
+    </div>
+    <div class="panel-body">
+      <div class="notes-info-banner">
+        <span>🔒</span>
+        <p>Notes are stored locally in your browser only. They are never transmitted, never visible to patients.</p>
+      </div>
+      <div class="panel-section">
+        <div class="notes-session-header">
+          <h3 class="panel-section-title">Current Session</h3>
+          <span class="notes-alias-tag" id="notes-current-alias">No active session</span>
+        </div>
+        <textarea class="notes-textarea" id="panelNotesArea" placeholder="Type your notes here… only you can see this."></textarea>
+        <div class="notes-actions">
+          <button class="notes-save-btn" id="panelSaveBtn" onclick="saveNotes()">Save Notes</button>
+          <button class="notes-clear-btn" onclick="clearNotes()">Clear</button>
+        </div>
+      </div>
+      <div class="panel-section">
+        <h3 class="panel-section-title">Previous Sessions</h3>
+        <div class="prev-notes-list" id="prev-notes-list"><div class="notes-empty">No previous notes saved.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PRIVACY LOG PANEL ── -->
+  <div class="side-panel" id="panel-privacy">
+    <div class="panel-header">
+      <div>
+        <span class="panel-eyebrow">Audit Trail</span>
+        <h2 class="panel-title">Privacy Log</h2>
+      </div>
+      <button class="panel-close" onclick="closePanel()">✕</button>
+    </div>
+    <div class="panel-body">
+      <div class="privacy-pledge">
+        <div class="pledge-icon">🛡️</div>
+        <p>Sanare uses end-to-end aliases. No real names are ever stored, transmitted, or logged. All identities are SHA-256 hashed with a unique salt before reaching this panel.</p>
+      </div>
+      <div class="panel-section">
+        <h3 class="panel-section-title">How Privacy Works</h3>
+        <div class="privacy-steps">
+          <div class="privacy-step"><div class="step-num">1</div><div><strong>Alias Generation</strong><p>Patient gets a random nature word + 4-digit number (e.g. Willow-4821) stored only in their browser session.</p></div></div>
+          <div class="privacy-step"><div class="step-num">2</div><div><strong>SHA-256 Hashing</strong><p>The alias is hashed client-side with salt <code>_sanare_salt</code> → 16-char hex ID. The server only ever sees the hash.</p></div></div>
+          <div class="privacy-step"><div class="step-num">3</div><div><strong>Therapist View</strong><p>You only see the first word of the alias (e.g. "Willow"). The number and hash are never shown to you.</p></div></div>
+          <div class="privacy-step"><div class="step-num">4</div><div><strong>No Persistence</strong><p>Sessions exist only in memory. When a patient closes their tab, their alias and hash are gone forever.</p></div></div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <h3 class="panel-section-title">Live Event Log</h3>
+        <div class="privacy-log-list" id="privacy-log-list">
+          <div class="log-entry">
+            <span class="log-time" id="log-start-time"></span>
+            <span class="log-event">Therapist panel opened</span>
+            <span class="log-badge safe">safe</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="privacy-stat-row">
+          <div class="privacy-stat"><span class="pstat-val" id="pstat-connected">0</span><span class="pstat-label">Aliases seen</span></div>
+          <div class="privacy-stat"><span class="pstat-val">0</span><span class="pstat-label">Real names seen</span></div>
+          <div class="privacy-stat"><span class="pstat-val" style="font-size:16px;margin-top:4px">SHA-256</span><span class="pstat-label">Hash algorithm</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-logo">Sanare</div>
     <div class="sidebar-role-badge">Therapist View</div>
     <nav class="sidebar-nav">
-      <a href="#" class="nav-item active">
+      <a href="#" class="nav-item active" onclick="closePanel(); return false;">
         <span class="nav-icon">🧭</span><span>Sessions</span>
       </a>
-      <a href="#" class="nav-item">
+      <a href="#" class="nav-item" onclick="openPanel('analytics'); return false;">
         <span class="nav-icon">📊</span><span>Analytics</span>
       </a>
-      <a href="#" class="nav-item">
+      <a href="#" class="nav-item" onclick="openPanel('notes'); return false;">
         <span class="nav-icon">📝</span><span>Notes</span>
       </a>
-      <a href="#" class="nav-item">
+      <a href="#" class="nav-item" onclick="openPanel('privacy'); return false;">
         <span class="nav-icon">🔒</span><span>Privacy Log</span>
       </a>
     </nav>
@@ -43,7 +331,6 @@
 
   <!-- MAIN -->
   <main class="main">
-
     <header class="topbar">
       <div class="topbar-left">
         <h1 class="page-title">Sessions</h1>
@@ -51,32 +338,22 @@
       </div>
       <div class="topbar-right">
         <div class="date-chip" id="dateChip"></div>
-        <div class="enc-badge">
-          <span>🔐</span> End-to-end encrypted
-        </div>
+        <div class="enc-badge"><span>🔐</span> End-to-end encrypted</div>
       </div>
     </header>
 
     <div class="therapist-grid">
-
-      <!-- LEFT: Patient Queue + Chat -->
       <div class="sessions-column">
-
-        <!-- Queue -->
         <div class="t-card" id="queueCard">
           <div class="t-card-header">
             <h2 class="t-card-title">Waiting Queue</h2>
             <span class="queue-count" id="queueCount">0 waiting</span>
           </div>
           <div class="queue-list" id="queueList">
-            <div class="queue-empty">
-              <span>🌿</span>
-              <p>No one waiting right now. You'll be notified when someone connects.</p>
-            </div>
+            <div class="queue-empty"><span>🌿</span><p>No one waiting right now. You'll be notified when someone connects.</p></div>
           </div>
         </div>
 
-        <!-- Active Chat -->
         <div class="t-card" id="activeChatCard">
           <div class="t-card-header">
             <div class="active-patient-info">
@@ -90,7 +367,6 @@
               <button class="action-btn end-btn" id="endSessionBtn" onclick="endSession()" disabled>End Session</button>
             </div>
           </div>
-
           <div class="chat-window" id="therapistChat">
             <div class="chat-messages" id="therapistMessages">
               <div class="msg-system">Connect with a patient to begin a session</div>
@@ -105,13 +381,9 @@
             </div>
           </div>
         </div>
-
       </div>
 
-      <!-- RIGHT: AI Summary + Wellness -->
       <div class="insights-column">
-
-        <!-- AI Summary Card -->
         <div class="t-card ai-card">
           <div class="t-card-header">
             <div class="ai-icon-wrap">
@@ -124,42 +396,27 @@
               <h2 class="t-card-title">AI Summary</h2>
               <p class="t-card-sub">Updates live as the session progresses</p>
             </div>
-            <div class="ai-live-badge" id="aiLiveBadge">
-              <span class="ai-dot"></span> Listening
-            </div>
+            <div class="ai-live-badge" id="aiLiveBadge"><span class="ai-dot"></span> Listening</div>
           </div>
-
-          <div class="ai-summary-box" id="aiSummaryBox">
-            <p class="ai-placeholder">AI insights will appear here once a session begins…</p>
-          </div>
-
-          <!-- Sentiment Gauge -->
+          <div class="ai-summary-box" id="aiSummaryBox"><p class="ai-placeholder">AI insights will appear here once a session begins…</p></div>
           <div class="sentiment-section">
             <span class="metric-label-sm">Emotional Tone</span>
             <div class="sentiment-bar-wrap">
-              <div class="sentiment-bar" id="sentimentBar" style="width: 50%"></div>
+              <div class="sentiment-bar" id="sentimentBar" style="width:50%"></div>
             </div>
-            <div class="sentiment-labels">
-              <span>Distressed</span><span>Neutral</span><span>Stable</span>
-            </div>
+            <div class="sentiment-labels"><span>Distressed</span><span>Neutral</span><span>Stable</span></div>
           </div>
-
-          <!-- Risk flags -->
           <div class="flags-section" id="flagsSection">
             <span class="metric-label-sm">Flagged Signals</span>
-            <div class="flags-list" id="flagsList">
-              <span class="flag-chip neutral">No concerns flagged</span>
-            </div>
+            <div class="flags-list" id="flagsList"><span class="flag-chip neutral">No concerns flagged</span></div>
           </div>
         </div>
 
-        <!-- Wellness Flower (patient's) -->
         <div class="t-card flower-mini-card">
           <div class="t-card-header">
             <h2 class="t-card-title">Patient Wellness</h2>
             <span class="alias-tag" id="flowerAliasTag">No session</span>
           </div>
-
           <div class="flower-wrap-mini">
             <svg class="flower-svg-mini" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
               <ellipse class="petal" cx="150" cy="150" rx="18" ry="55" transform="rotate(0 150 150) translate(0 -60)" fill="#A8C5B5" opacity="0.85"/>
@@ -179,37 +436,14 @@
             </svg>
             <div class="flower-glow"></div>
           </div>
-
           <div class="metrics-list-mini" id="metricsMini">
-            <div class="metric-row">
-              <span class="metric-dot" style="background:#A8C5B5"></span>
-              <span class="metric-label">Mood</span>
-              <div class="metric-bar-wrap"><div class="metric-bar" id="mbar-mood" style="width:0%;background:#A8C5B5"></div></div>
-              <span class="metric-val" id="mval-mood">—</span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-dot" style="background:#B5CCA4"></span>
-              <span class="metric-label">Sleep</span>
-              <div class="metric-bar-wrap"><div class="metric-bar" id="mbar-sleep" style="width:0%;background:#B5CCA4"></div></div>
-              <span class="metric-val" id="mval-sleep">—</span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-dot" style="background:#C5B5A8"></span>
-              <span class="metric-label">Anxiety</span>
-              <div class="metric-bar-wrap"><div class="metric-bar" id="mbar-anxiety" style="width:0%;background:#C5B5A8"></div></div>
-              <span class="metric-val" id="mval-anxiety">—</span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-dot" style="background:#C5A8B5"></span>
-              <span class="metric-label">Energy</span>
-              <div class="metric-bar-wrap"><div class="metric-bar" id="mbar-energy" style="width:0%;background:#C5A8B5"></div></div>
-              <span class="metric-val" id="mval-energy">—</span>
-            </div>
+            <div class="metric-row"><span class="metric-dot" style="background:#A8C5B5"></span><span class="metric-label">Mood</span><div class="metric-bar-wrap"><div class="metric-bar" id="mbar-mood" style="width:0%;background:#A8C5B5"></div></div><span class="metric-val" id="mval-mood">—</span></div>
+            <div class="metric-row"><span class="metric-dot" style="background:#B5CCA4"></span><span class="metric-label">Sleep</span><div class="metric-bar-wrap"><div class="metric-bar" id="mbar-sleep" style="width:0%;background:#B5CCA4"></div></div><span class="metric-val" id="mval-sleep">—</span></div>
+            <div class="metric-row"><span class="metric-dot" style="background:#C5B5A8"></span><span class="metric-label">Anxiety</span><div class="metric-bar-wrap"><div class="metric-bar" id="mbar-anxiety" style="width:0%;background:#C5B5A8"></div></div><span class="metric-val" id="mval-anxiety">—</span></div>
+            <div class="metric-row"><span class="metric-dot" style="background:#C5A8B5"></span><span class="metric-label">Energy</span><div class="metric-bar-wrap"><div class="metric-bar" id="mbar-energy" style="width:0%;background:#C5A8B5"></div></div><span class="metric-val" id="mval-energy">—</span></div>
           </div>
-
         </div>
 
-        <!-- Session Notes -->
         <div class="t-card notes-card">
           <div class="t-card-header">
             <h2 class="t-card-title">Session Notes</h2>
@@ -217,12 +451,212 @@
           </div>
           <textarea class="notes-area" id="notesArea" placeholder="Private notes — never shared with patient…" disabled></textarea>
         </div>
-
       </div>
-
     </div>
   </main>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="therapist.js"></script>
+  <script>
+  // ─────────────────────────────────────────
+  // PANEL SYSTEM
+  // ─────────────────────────────────────────
+  const analyticsData = {
+    sessionsToday: 0, totalDuration: 0, flagsRaised: 0,
+    moodCounts: { struggling:0, numb:0, okay:0, calm:0, thriving:0 },
+    themes: {}, timeline: [], aliasesSeen: new Set(),
+  };
+  const savedNotes  = {};
+  const privacyEvents = [];
+
+  function openPanel(name) {
+    closePanel(true);
+    if (name === 'analytics') refreshAnalytics();
+    if (name === 'notes')     refreshNotes();
+    if (name === 'privacy')   refreshPrivacy();
+    document.getElementById(`panel-${name}`).classList.add('open');
+    document.getElementById('panelBackdrop').classList.add('open');
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.nav-item[onclick*="${name}"]`)?.classList.add('active');
+  }
+
+  function closePanel(silent = false) {
+    document.querySelectorAll('.side-panel').forEach(p => p.classList.remove('open'));
+    document.getElementById('panelBackdrop').classList.remove('open');
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelector('.nav-item[onclick*="closePanel"]')?.classList.add('active');
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+  // ─── ANALYTICS ───
+  function refreshAnalytics() {
+    document.getElementById('an-sessions').textContent = analyticsData.sessionsToday;
+    document.getElementById('an-queue').textContent    = typeof queueData !== 'undefined' ? queueData.length : 0;
+    document.getElementById('an-flags').textContent    = analyticsData.flagsRaised;
+    const avg = analyticsData.sessionsToday > 0 ? Math.round(analyticsData.totalDuration / analyticsData.sessionsToday) : 0;
+    document.getElementById('an-avgdur').textContent   = avg > 0 ? `${Math.floor(avg/60)}m ${avg%60}s` : '—';
+
+    const total = Object.values(analyticsData.moodCounts).reduce((a,b)=>a+b,0)||1;
+    ['struggling','numb','okay','calm','thriving'].forEach(m => {
+      const pct = Math.round(analyticsData.moodCounts[m]/total*100);
+      const f = document.getElementById(`mf-${m}`); if(f) f.style.width = pct+'%';
+      const p = document.getElementById(`mp-${m}`); if(p) p.textContent = pct+'%';
+    });
+
+    const sorted = Object.entries(analyticsData.themes).sort((a,b)=>b[1]-a[1]);
+    document.getElementById('an-themes').innerHTML = sorted.length
+      ? sorted.map(([t,c])=>`<span class="theme-chip">${t} <strong>${c}</strong></span>`).join('')
+      : '<span class="theme-chip">No sessions yet</span>';
+
+    document.getElementById('an-timeline').innerHTML = analyticsData.timeline.length
+      ? analyticsData.timeline.slice().reverse().map(s=>`
+          <div class="timeline-item">
+            <div class="tl-dot"></div>
+            <div class="tl-content">
+              <div class="tl-alias">🌿 ${s.alias}</div>
+              <div class="tl-meta">${s.time} · ${s.duration} · ${s.mood||'mood not shared'}</div>
+            </div>
+          </div>`).join('')
+      : '<div class="timeline-empty">No sessions recorded yet today.</div>';
+  }
+
+  function recordSessionToAnalytics(alias, durationSecs, moodLabel) {
+    analyticsData.sessionsToday++;
+    analyticsData.totalDuration += durationSecs;
+    analyticsData.aliasesSeen.add(alias);
+    const m = (moodLabel||'').toLowerCase();
+    if(m.includes('struggling')) analyticsData.moodCounts.struggling++;
+    else if(m.includes('numb'))  analyticsData.moodCounts.numb++;
+    else if(m.includes('okay'))  analyticsData.moodCounts.okay++;
+    else if(m.includes('calm'))  analyticsData.moodCounts.calm++;
+    else if(m.includes('thriving')) analyticsData.moodCounts.thriving++;
+    const mins = Math.floor(durationSecs/60), secs = durationSecs%60;
+    analyticsData.timeline.push({
+      alias, mood: moodLabel||null,
+      time: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),
+      duration: `${mins}m ${secs}s`,
+    });
+    addPrivacyLog(`Session ended with ${alias}`, 'info');
+    document.getElementById('pstat-connected').textContent = analyticsData.aliasesSeen.size;
+  }
+
+  // ─── NOTES ───
+  function refreshNotes() {
+    const alias = (typeof activePatientId !== 'undefined' && activePatientId)
+      ? (document.getElementById('activeAlias')?.textContent || 'Unknown')
+      : 'No active session';
+    document.getElementById('notes-current-alias').textContent = alias;
+
+    const mainNotes  = document.getElementById('notesArea');
+    const panelNotes = document.getElementById('panelNotesArea');
+    if (mainNotes && panelNotes) panelNotes.value = mainNotes.value;
+
+    const entries = Object.entries(savedNotes);
+    document.getElementById('prev-notes-list').innerHTML = entries.length
+      ? entries.reverse().map(([a,n])=>`
+          <div class="prev-note-item">
+            <div class="prev-note-header">
+              <span class="prev-note-alias">🌿 ${a}</span>
+              <span class="prev-note-time">${n.time}</span>
+            </div>
+            <div class="prev-note-text">${n.text.slice(0,200)}${n.text.length>200?'…':''}</div>
+          </div>`).join('')
+      : '<div class="notes-empty">No previous notes saved.</div>';
+  }
+
+  function saveNotes() {
+    const panelNotes = document.getElementById('panelNotesArea');
+    const mainNotes  = document.getElementById('notesArea');
+    const btn        = document.getElementById('panelSaveBtn');
+    const alias      = document.getElementById('notes-current-alias')?.textContent||'Unknown';
+    if (mainNotes) mainNotes.value = panelNotes.value;
+    if (panelNotes.value.trim() && alias !== 'No active session') {
+      savedNotes[alias] = {
+        text: panelNotes.value,
+        time: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),
+      };
+    }
+    btn.textContent = 'Saved ✓'; btn.style.background = '#27AE60';
+    setTimeout(()=>{ btn.textContent='Save Notes'; btn.style.background=''; }, 2000);
+    addPrivacyLog('Session notes saved (local only)', 'safe');
+  }
+
+  function clearNotes() {
+    if (confirm('Clear notes for this session?')) {
+      document.getElementById('panelNotesArea').value = '';
+      const m = document.getElementById('notesArea'); if(m) m.value = '';
+    }
+  }
+
+  // ─── PRIVACY LOG ───
+  function addPrivacyLog(event, badge='info') {
+    const time = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    privacyEvents.unshift({time,event,badge});
+    if(privacyEvents.length>60) privacyEvents.pop();
+  }
+
+  function refreshPrivacy() {
+    document.getElementById('pstat-connected').textContent = analyticsData.aliasesSeen.size;
+    document.getElementById('privacy-log-list').innerHTML = privacyEvents.map(e=>`
+      <div class="log-entry">
+        <span class="log-time">${e.time}</span>
+        <span class="log-event">${e.event}</span>
+        <span class="log-badge ${e.badge}">${e.badge}</span>
+      </div>`).join('');
+  }
+
+  // ─── PATCH clearSession to record analytics ───
+  const _origClearSession = window.clearSession;
+  window.clearSession = function() {
+    if (typeof sessionStart !== 'undefined' && sessionStart && typeof activePatientId !== 'undefined' && activePatientId) {
+      const dur   = Math.floor((new Date() - sessionStart)/1000);
+      const alias = document.getElementById('activeAlias')?.textContent||'Unknown';
+      const mood  = document.getElementById('flowerScore')?.textContent !== '—'
+        ? document.getElementById('flowerScore').textContent : null;
+      const notesVal = document.getElementById('notesArea')?.value;
+      if(notesVal?.trim()) savedNotes[alias] = { text:notesVal, time:new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) };
+      recordSessionToAnalytics(alias, dur, mood);
+    }
+    if(_origClearSession) _origClearSession();
+  };
+
+  // ─── PATCH checkFlags to count flags ───
+  const _origCheckFlags = window.checkFlags;
+  window.checkFlags = function(text) {
+    const t = text.toLowerCase();
+    if(/harm|hurt myself|end it|suicide|die|hopeless|worthless/.test(t)) {
+      analyticsData.flagsRaised++;
+      addPrivacyLog('⚠ Clinical flag raised (see AI Summary)', 'warn');
+    }
+    if(_origCheckFlags) _origCheckFlags(text);
+  };
+
+  // ─── PATCH buildSummary to record themes ───
+  const _origBuildSummary = window.buildSummary;
+  window.buildSummary = function(lines) {
+    const t = lines.join(' ').toLowerCase();
+    [['anxiety',/anxious|stress|worry|panic/],['low mood',/sad|depress|hopeless|empty/],
+     ['sleep issues',/sleep|tired|exhausted/],['frustration',/angry|frustrat/],
+     ['loneliness',/alone|lonely|isolated/],['work stress',/work|job|pressure/],
+     ['positive shift',/better|progress|hope/]
+    ].forEach(([name,re])=>{ if(re.test(t)) analyticsData.themes[name]=(analyticsData.themes[name]||0)+1; });
+    return _origBuildSummary ? _origBuildSummary(lines) : '';
+  };
+
+  // ─── Log patient connections ───
+  if(typeof socket !== 'undefined') {
+    socket.on('patient_message', ({alias})=>{
+      if(alias) { analyticsData.aliasesSeen.add(alias.split('-')[0]); }
+    });
+  }
+
+  // Init
+  document.getElementById('log-start-time').textContent =
+    new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  addPrivacyLog('Therapist panel opened', 'safe');
+  addPrivacyLog('SHA-256 alias encryption active', 'safe');
+  addPrivacyLog('No real names will be stored', 'safe');
+  </script>
 </body>
 </html>
