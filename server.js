@@ -71,11 +71,14 @@ io.on("connection", (socket) => {
       joinedAt: Date.now(),
     });
 
-    broadcastQueue();
-
     const position = [...queue.keys()].indexOf(data.patientId) + 1;
     socket.emit("queue_position", { position });
+
     console.log(`📋 Patient queued: ${data.alias} at position ${position}`);
+    console.log(`📡 Therapists online: ${therapists.size} — broadcasting queue of ${queue.size} to them`);
+    therapists.forEach(id => console.log(`   → sending to therapist socket: ${id}`));
+
+    broadcastQueue();
   });
 
   // ── THERAPIST JOIN ──

@@ -92,19 +92,33 @@ function renderQueue(queue) {
     return;
   }
 
+  // ✅ FIX: Never put p.color (contains #) or p.id/p.alias inside onclick="" strings.
+  // # in a hex color like #A8C5B5 breaks HTML attribute parsing silently.
+  // Use data-* attributes and attach listeners after setting innerHTML.
   list.innerHTML = queue.map(p => `
-    <div class="queue-item ${p.id === activePatientId ? 'active-session' : ''}">
-      <div class="q-avatar" style="background:${p.color}">${p.alias[0]}</div>
+    <div class="queue-item ${p.id === activePatientId ? 'active-session' : ''}"
+         data-id="${p.id}"
+         data-alias="${p.alias}"
+         data-color="${p.color || '#A8C5B5'}">
+      <div class="q-avatar" style="background:${p.color || '#A8C5B5'}">${(p.alias || '?')[0]}</div>
       <div class="q-info">
         <span class="q-alias">${p.alias}</span>
         <span class="q-wait">Waiting ${p.waitTime}</span>
       </div>
       ${p.mood ? `<span class="q-mood-chip">${p.mood}</span>` : ''}
       ${p.id !== activePatientId
-        ? `<button class="accept-btn" onclick="acceptSession('${p.id}','${p.alias}','${p.color}')">Accept</button>`
+        ? `<button class="accept-btn">Accept</button>`
         : `<span style="font-size:11px;color:var(--t-accent);font-weight:500">Active</span>`}
     </div>
   `).join('');
+
+  // Safely bind Accept buttons using data attributes — no inline onclick needed
+  list.querySelectorAll('.accept-btn').forEach(btn => {
+    const item = btn.closest('.queue-item');
+    btn.addEventListener('click', () => {
+      acceptSession(item.dataset.id, item.dataset.alias, item.dataset.color);
+    });
+  });
 }
 
 // ─────────────────────────────────────────
