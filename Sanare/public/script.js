@@ -66,39 +66,44 @@ setInterval(() => {
   }
 }, 1000);
 
-document.addEventListener("DOMContentLoaded", () => {
+document.querySelectorAll("button.reveal").forEach(button => {
 
-  const revealButtons = document.querySelectorAll("button.reveal");
+  button.addEventListener("click", async (e) => {
 
-  revealButtons.forEach(button => {
-    button.addEventListener("click", async () => {
+    e.preventDefault(); // prevent accidental double behavior
 
-      try {
-        const response = await fetch("/create-token", {
-          method: "POST"
-        });
+    button.disabled = true; // prevent multi-click
+    button.innerText = "Processing...";
 
-        const data = await response.json();
+    try {
+      const response = await fetch(`${window.location.origin}/create-token`, {
+  method: "POST"
+});
 
-        if (data.success) {
-          console.log("Token Created:", data.txId);
 
-          // Print on page
-          document.getElementById("tokenOutput").innerText =
-            "Token Created!\nTX ID: " + data.txId;
+      const data = await response.json();
 
-        } else {
-          document.getElementById("tokenOutput").innerText =
-            "Error: " + data.error;
+      if (data.success) {
+
+        localStorage.setItem("txId", data.txId);
+        if (data.assetId) {
+          localStorage.setItem("assetId", data.assetId);
         }
 
-      } catch (error) {
-        document.getElementById("tokenOutput").innerText =
-          "Server Error!";
+        window.location.href = "dashboard.html";
+
+      } else {
+        alert("Error: " + data.error);
+        button.disabled = false;
+        button.innerText = "Try Again";
       }
 
-    });
+    } catch (err) {
+      alert("Server Error");
+      button.disabled = false;
+      button.innerText = "Try Again";
+    }
+
   });
 
 });
-

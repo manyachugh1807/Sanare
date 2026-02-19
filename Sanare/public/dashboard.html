@@ -7,5 +7,21 @@
 </head>
 <body>
     Ashu
+    
 </body>
+<script>
+  const txId = localStorage.getItem("txId");
+  const assetId = localStorage.getItem("assetId");
+
+  if (txId) {
+    document.body.innerHTML += `
+      <div style="padding:20px">
+        <h2>Token Created Successfully</h2>
+        <p><strong>Transaction ID:</strong> ${txId}</p>
+        <p><strong>Asset ID:</strong> ${assetId || "Not available"}</p>
+      </div>
+    `;
+  }
+</script>
+
 </html>
