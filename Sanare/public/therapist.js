@@ -12,25 +12,18 @@ document.addEventListener('mousemove', e => {
   requestAnimationFrame(loop);
 })();
 
-// ─── Date ───
 document.getElementById('dateChip').textContent = new Date().toLocaleDateString('en-IN',{
   weekday:'short', day:'numeric', month:'short'
 });
 
-// ─────────────────────────────────────────
-// STATE
-// ─────────────────────────────────────────
+// ─── State ───
 let activePatientId = null;
 let sessionStart    = null;
 let messageHistory  = [];
 let sessionTimer    = null;
 let queueData       = [];
 
-// ─────────────────────────────────────────
-// SOCKET.IO
-// Step 1: attach all listeners
-// Step 2: connect
-// ─────────────────────────────────────────
+// ─── Socket.IO ───
 const socket = io({ autoConnect: false });
 
 socket.on('connect', () => {
@@ -44,10 +37,8 @@ socket.on('disconnect', () => {
 });
 
 socket.on('connect_error', (err) => {
-  console.error('Socket error:', err.message);
+  console.warn('Socket error:', err.message);
   document.getElementById('therapistStatus').textContent = '○ Connecting…';
-  // ✅ FIX: Don't set to "Error" on connect_error — it may be a transient
-  // WebSocket→polling transport upgrade. Let it retry silently.
 });
 
 socket.on('queue_update', ({ queue }) => {
@@ -76,12 +67,9 @@ socket.on('session_ended_by_patient', ({ patientId }) => {
   clearSession();
 });
 
-// ── Connect ──
 socket.connect();
 
-// ─────────────────────────────────────────
-// QUEUE
-// ─────────────────────────────────────────
+// ─── Queue ───
 function renderQueue(queue) {
   const list  = document.getElementById('queueList');
   const count = document.getElementById('queueCount');
@@ -92,15 +80,10 @@ function renderQueue(queue) {
     return;
   }
 
-  // ✅ FIX: Never put p.color (contains #) or p.id/p.alias inside onclick="" strings.
-  // # in a hex color like #A8C5B5 breaks HTML attribute parsing silently.
-  // Use data-* attributes and attach listeners after setting innerHTML.
   list.innerHTML = queue.map(p => `
     <div class="queue-item ${p.id === activePatientId ? 'active-session' : ''}"
-         data-id="${p.id}"
-         data-alias="${p.alias}"
-         data-color="${p.color || '#A8C5B5'}">
-      <div class="q-avatar" style="background:${p.color || '#A8C5B5'}">${(p.alias || '?')[0]}</div>
+         data-id="${p.id}" data-alias="${p.alias}" data-color="${p.color || '#A8C5B5'}">
+      <div class="q-avatar" style="background:${p.color || '#A8C5B5'}">${(p.alias||'?')[0]}</div>
       <div class="q-info">
         <span class="q-alias">${p.alias}</span>
         <span class="q-wait">Waiting ${p.waitTime}</span>
@@ -112,7 +95,6 @@ function renderQueue(queue) {
     </div>
   `).join('');
 
-  // Safely bind Accept buttons using data attributes — no inline onclick needed
   list.querySelectorAll('.accept-btn').forEach(btn => {
     const item = btn.closest('.queue-item');
     btn.addEventListener('click', () => {
@@ -121,9 +103,7 @@ function renderQueue(queue) {
   });
 }
 
-// ─────────────────────────────────────────
-// ACCEPT / END SESSION
-// ─────────────────────────────────────────
+// ─── Accept / End Session ───
 function acceptSession(patientId, alias, color) {
   if (activePatientId && !confirm('End current session and switch?')) return;
   if (activePatientId) endSession(true);
@@ -147,16 +127,13 @@ function acceptSession(patientId, alias, color) {
   document.getElementById('flagsList').innerHTML =
     `<span class="flag-chip neutral">No concerns flagged</span>`;
   document.getElementById('flowerScore').textContent = '—';
-
-  // ✅ FIX: Reset sentiment bar to centre (50%) when new session starts
   setSentimentBar(50);
   resetWellness();
 
   clearInterval(sessionTimer);
   sessionTimer = setInterval(() => {
     const s = Math.floor((new Date() - sessionStart) / 1000);
-    document.getElementById('activeSince').textContent =
-      `${Math.floor(s/60)}m ${s%60}s`;
+    document.getElementById('activeSince').textContent = `${Math.floor(s/60)}m ${s%60}s`;
   }, 1000);
 
   socket.emit('therapist_accept', { patientId });
@@ -181,8 +158,7 @@ function clearSession() {
   document.getElementById('flowerAliasTag').textContent    = 'No session';
 
   setUI(false);
-  document.getElementById('therapistMessages').innerHTML =
-    `<div class="msg-system">Session ended</div>`;
+  document.getElementById('therapistMessages').innerHTML = `<div class="msg-system">Session ended</div>`;
   document.getElementById('flowerScore').textContent = '—';
   setSentimentBar(50);
   resetWellness();
@@ -196,9 +172,7 @@ function setUI(active) {
     document.getElementById(id).disabled = !active);
 }
 
-// ─────────────────────────────────────────
-// SEND MESSAGE
-// ─────────────────────────────────────────
+// ─── Send Message ───
 document.getElementById('therapistSendBtn').addEventListener('click', sendMsg);
 document.getElementById('therapistInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') sendMsg();
@@ -217,9 +191,7 @@ function sendMsg() {
   updateAI();
 }
 
-// ─────────────────────────────────────────
-// MESSAGES
-// ─────────────────────────────────────────
+// ─── Messages ───
 function addMsg(side, label, text) {
   const msgs = document.getElementById('therapistMessages');
   const d    = document.createElement('div');
@@ -241,9 +213,7 @@ function sysMsg(text) {
   msgs.scrollTop = msgs.scrollHeight;
 }
 
-// ─────────────────────────────────────────
-// AI SUMMARY
-// ─────────────────────────────────────────
+// ─── AI Summary ───
 let aiTimer = null;
 
 function updateAI() {
@@ -260,28 +230,26 @@ function buildSummary(lines) {
   const t = lines.join(' ').toLowerCase();
   let themes = [], tone = 'neutral';
 
-  if (/anxious|stress|worry|panic/.test(t))      themes.push('anxiety');
-  if (/sad|depress|hopeless|empty/.test(t))      themes.push('low mood');
-  if (/sleep|tired|exhausted|insomn/.test(t))    themes.push('sleep issues');
-  if (/angry|frustrat|irritat/.test(t))          themes.push('frustration');
-  if (/alone|lonely|isolated/.test(t))           themes.push('loneliness');
-  if (/work|job|pressure/.test(t))               themes.push('work stress');
-  if (/family|relationship|partner/.test(t))     themes.push('relationship strain');
-  if (/better|progress|hope/.test(t))          { themes.push('positive shift'); tone='positive'; }
+  if (/anxious|stress|worry|panic/.test(t))   themes.push('anxiety');
+  if (/sad|depress|hopeless|empty/.test(t))   themes.push('low mood');
+  if (/sleep|tired|exhausted/.test(t))        themes.push('sleep issues');
+  if (/angry|frustrat/.test(t))               themes.push('frustration');
+  if (/alone|lonely|isolated/.test(t))        themes.push('loneliness');
+  if (/work|job|pressure/.test(t))            themes.push('work stress');
+  if (/family|relationship|partner/.test(t))  themes.push('relationship strain');
+  if (/better|progress|hope/.test(t))       { themes.push('positive shift'); tone='positive'; }
   if (!themes.length) themes = ['general distress'];
 
-  if (/hopeless|harm|die|end it/.test(t))        tone = 'critical';
-  else if (/better|hopeful/.test(t))             tone = 'stable';
-  else if (themes.length > 2)                    tone = 'elevated';
+  if (/hopeless|harm|die|end it/.test(t))     tone = 'critical';
+  else if (/better|hopeful/.test(t))          tone = 'stable';
+  else if (themes.length > 2)                 tone = 'elevated';
 
   let rec = 'Continue <strong>active listening</strong>.';
   if (tone==='critical') rec = '<strong>⚠️ Safety assessment recommended.</strong>';
   if (tone==='elevated') rec = '<strong>Grounding or CBT</strong> may help.';
   if (tone==='positive') rec = '<strong>Reinforce positive progress.</strong>';
 
-  return `Themes: <strong>${themes.join(', ')}</strong>. 
-    Tone: <strong>${tone}</strong>. 
-    ${lines.length} msg${lines.length>1?'s':''} analysed. ${rec}`;
+  return `Themes: <strong>${themes.join(', ')}</strong>. Tone: <strong>${tone}</strong>. ${lines.length} msg${lines.length>1?'s':''} analysed. ${rec}`;
 }
 
 function checkFlags(text) {
@@ -298,9 +266,6 @@ function checkFlags(text) {
     : `<span class="flag-chip neutral">No concerns flagged</span>`;
 }
 
-// ✅ FIX: Sentiment bar was using style.left which does nothing on a normal div.
-// The bar should use style.width to show a filled portion of the track.
-// 0% = Distressed, 100% = Stable, 50% = Neutral.
 function setSentimentBar(pct) {
   const bar = document.getElementById('sentimentBar');
   if (bar) bar.style.width = Math.max(5, Math.min(95, pct)) + '%';
@@ -310,20 +275,18 @@ function updateSentiment(text) {
   const t   = text.toLowerCase();
   const neg = (t.match(/sad|depressed|hopeless|anxious|panic|harm|die/g)||[]).length;
   const pos = (t.match(/better|good|calm|hope|progress|grateful/g)||[]).length;
-  // Start at 50 (neutral), shift left for negative, right for positive
-  const pct = Math.max(5, Math.min(95, 50 - neg * 12 + pos * 10));
-  setSentimentBar(pct);
+  setSentimentBar(Math.max(5, Math.min(95, 50 - neg*12 + pos*10)));
 }
 
 function updateWellness(score) {
   document.getElementById('flowerScore').textContent = score + '%';
-  const multipliers = { mood:1.05, sleep:0.88, anxiety:0.75, energy:0.82 };
-  Object.entries(multipliers).forEach(([k, f]) => {
-    const val = Math.min(100, Math.round(score * f));
-    const b   = document.getElementById(`mbar-${k}`);
-    const v   = document.getElementById(`mval-${k}`);
-    if (b) b.style.width = val + '%';
-    if (v) v.textContent = val + '%';
+  const m = { mood:1.05, sleep:0.88, anxiety:0.75, energy:0.82 };
+  Object.entries(m).forEach(([k,f]) => {
+    const val = Math.min(100, Math.round(score*f));
+    const b = document.getElementById(`mbar-${k}`);
+    const v = document.getElementById(`mval-${k}`);
+    if (b) b.style.width = val+'%';
+    if (v) v.textContent = val+'%';
   });
 }
 
@@ -344,9 +307,5 @@ document.getElementById('saveNotesBtn').addEventListener('click', () => {
 });
 
 // ─── Utils ───
-function esc(t) {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-function now() {
-  return new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
-}
+function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function now()  { return new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}); }

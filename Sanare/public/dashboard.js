@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════
+// dashboard.js — COMPLETE, single file, no splits
+// ═══════════════════════════════════════════════════
+
 // ─── Cursor ───
 const cursor = document.getElementById('cursor');
 const ring   = document.getElementById('cursorRing');
@@ -6,56 +10,46 @@ document.addEventListener('mousemove', e => {
   mx=e.clientX; my=e.clientY;
   cursor.style.transform=`translate(${mx-5}px,${my-5}px)`;
 });
-(function loop(){ rx+=(mx-rx)*0.12; ry+=(my-ry)*0.12;
+(function loop(){
+  rx+=(mx-rx)*0.12; ry+=(my-ry)*0.12;
   ring.style.transform=`translate(${rx-15}px,${ry-15}px)`;
   requestAnimationFrame(loop);
 })();
-document.querySelectorAll('button,a,input').forEach(el => {
-  el.addEventListener('mouseenter', () => ring.style.opacity='0.9');
-  el.addEventListener('mouseleave', () => ring.style.opacity='0.4');
-});
 
-// ─── Date ───
 document.getElementById('dateChip').textContent = new Date().toLocaleDateString('en-IN',{
   weekday:'short', day:'numeric', month:'short'
 });
 
-// ─────────────────────────────────────────
-// ALIAS — nature word + number, no real name
-// ─────────────────────────────────────────
+// ─── Alias ───
 const ALIAS_WORDS = ['Willow','Cedar','River','Cloud','Stone','Fern','Meadow',
   'Birch','Rain','Ember','Dusk','Creek','Petal','Mist','Vale'];
 
 function generateAlias() {
-  const stored = sessionStorage.getItem('sanare_alias');
-  if (stored) return stored;
-  const word  = ALIAS_WORDS[Math.floor(Math.random() * ALIAS_WORDS.length)];
-  const num   = Math.floor(1000 + Math.random() * 9000);
-  const alias = `${word}-${num}`;
-  sessionStorage.setItem('sanare_alias', alias);
-  return alias;
+  const s = sessionStorage.getItem('sanare_alias');
+  if (s) return s;
+  const word = ALIAS_WORDS[Math.floor(Math.random()*ALIAS_WORDS.length)];
+  const num  = Math.floor(1000 + Math.random()*9000);
+  const a    = `${word}-${num}`;
+  sessionStorage.setItem('sanare_alias', a);
+  return a;
 }
 
 async function hashAlias(alias) {
-  const enc = new TextEncoder().encode(alias + '_sanare_salt');
+  const enc = new TextEncoder().encode(alias+'_sanare_salt');
   const buf = await crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buf))
-    .map(b => b.toString(16).padStart(2,'0')).join('').slice(0,16);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,16);
 }
 
 const MY_ALIAS    = generateAlias();
 const displayName = MY_ALIAS.split('-')[0];
-
 document.getElementById('aliasDisplay').textContent  = displayName;
 document.getElementById('avatarInitial').textContent = displayName[0];
 document.getElementById('aliasInNote').textContent   = MY_ALIAS;
 
-const COLORS   = ['#A8C5B5','#B5CCA4','#A8B5C5','#C5A8B5','#B5A8C5','#C5B5A8'];
-const colorIdx = MY_ALIAS.charCodeAt(0) % COLORS.length;
+const COLORS  = ['#A8C5B5','#B5CCA4','#A8B5C5','#C5A8B5','#B5A8C5','#C5B5A8'];
+const myColor = COLORS[MY_ALIAS.charCodeAt(0) % COLORS.length];
 
-// ─────────────────────────────────────────
-// STATE
-// ─────────────────────────────────────────
+// ─── State ───
 let MY_ID            = null;
 let socketReady      = false;
 let inHumanSession   = false;
@@ -65,440 +59,369 @@ let currentMoodLabel = null;
 let currentMoodScore = null;
 let therapistsOnline = 0;
 
-// ─────────────────────────────────────────
-// ROBO AI STATE
-// Replaces the old static ROBO_REPLIES array
-// ─────────────────────────────────────────
-const roboHistory = []; // { role: 'user'|'assistant', content: string }
-let roboIsTyping  = false;
+// ─── Flower ───
+let flowerScore  = 72;
+let flowerTarget = 72;
+let flowerAF     = null;
 
-// System prompt — defines Robo's personality and safety rules
-function buildSystemPrompt() {
-  const moodContext = currentMoodScore
-    ? `The patient's current mood score is ${currentMoodScore}/100 (${currentMoodLabel}).`
-    : 'The patient has not yet shared their mood.';
-
-  return `You are Robo, a compassionate AI mental wellness companion on Sanare — a safe, anonymous mental health support platform.
-
-${moodContext}
-The patient's anonymous alias is: ${displayName}. Never ask for or use their real name.
-
-Your role:
-- Be warm, empathetic, and non-judgmental
-- Use evidence-based approaches: CBT reframing, grounding techniques (5-4-3-2-1), mindful breathing
-- Keep each response to 2–3 sentences maximum — brief, present, unhurried
-- Respond to the emotional content first, then gently invite reflection
-- Never diagnose, prescribe medication, or make clinical judgments
-- If you detect crisis signals (self-harm, suicidal ideation, phrases like "end it", "no point"), respond with care and provide: iCall India helpline 9152987821, or international: Crisis Text Line (text HOME to 741741)
-- You are not a replacement for professional therapy — if themes become complex, gently suggest speaking to a human listener on Sanare or a professional
-
-Tone: gentle, grounded, present. Like a wise, calm friend who actually listens.`;
+function setFlowerTarget(s) {
+  flowerTarget = Math.max(4, Math.min(100, s));
+  cancelAnimationFrame(flowerAF);
+  flowerAF = requestAnimationFrame(animateFlower);
 }
 
-// ─────────────────────────────────────────
-// OPENROUTER GPT-4o CALL (streamed)
-// ─────────────────────────────────────────
+function animateFlower() {
+  const diff = flowerTarget - flowerScore;
+  if (Math.abs(diff) < 0.4) { flowerScore = flowerTarget; renderFlower(flowerScore); return; }
+  flowerScore += diff * 0.035;
+  renderFlower(flowerScore);
+  flowerAF = requestAnimationFrame(animateFlower);
+}
+
+function pulseFlower(dir) {
+  const svg = document.querySelector('.flower-svg');
+  if (!svg) return;
+  svg.style.filter = dir==='up'
+    ? 'drop-shadow(0 0 14px rgba(168,197,181,0.85))'
+    : 'drop-shadow(0 0 14px rgba(192,122,138,0.6))';
+  setTimeout(() => svg.style.filter='', 2200);
+}
+
+function renderFlower(score) {
+  const petals = document.querySelectorAll('.petal');
+  const s      = score/100;
+  const alive  = Math.max(2, Math.round(2 + s*6));
+  petals.forEach((p,i) => {
+    p.style.transition = 'opacity 1.8s ease';
+    if (i >= alive) { p.setAttribute('ry','4'); p.style.opacity='0.06'; }
+    else {
+      const wave = 0.85 + Math.sin(i*2.1+1)*0.15;
+      p.setAttribute('ry', Math.round(14 + s*46*wave));
+      p.style.opacity = (0.65 + s*0.3).toFixed(2);
+    }
+  });
+  const sc = document.getElementById('centerScore');
+  if (sc) sc.textContent = Math.round(score)+'%';
+
+  const bases = [0.78,0.65,0.55,0.82,0.60,0.70];
+  document.querySelectorAll('.metric-bar').forEach((bar,i) => {
+    const val = Math.min(100, Math.round(bases[i]*score/72*100));
+    bar.style.width = val+'%'; bar.style.transition = 'width 1.8s ease';
+    const v = bar.closest('.metric-row')?.querySelector('.metric-val');
+    if (v) v.textContent = val+'%';
+  });
+
+  const el = document.getElementById('statusMsg');
+  if (!el) return;
+  let icon, text;
+  if      (score<25){icon='🥀';text="It's okay to struggle. Your flower is resting — it will bloom again.";}
+  else if (score<40){icon='🌧️';text="Heavy days are real. You reached out — that already takes courage.";}
+  else if (score<55){icon='🌱';text="Something small is growing. One breath at a time.";}
+  else if (score<70){icon='🌤️';text="You're finding your footing. Keep going — your flower notices.";}
+  else if (score<85){icon='🌿';text="You're on the right track. Your flower is gently blooming.";}
+  else              {icon='🌸';text="You're thriving. Your wellness garden is in full bloom.";}
+  el.innerHTML = `<span class="status-icon">${icon}</span><p>${text}</p>`;
+}
+
+// ═══════════════════════════════════════════════════
+// ROBO AI — riverflow-v2-pro via OpenRouter (stream)
+// ═══════════════════════════════════════════════════
+const roboHistory = [];
+let roboTyping    = false;
+
+function buildSystemPrompt() {
+  const moodCtx = currentMoodScore
+    ? `Patient mood: ${currentMoodScore}/100 (${currentMoodLabel}).`
+    : 'Patient has not shared mood yet.';
+  return `You are Robo, a compassionate AI mental wellness companion on Sanare — safe, anonymous.
+${moodCtx} Alias: ${displayName}. Never ask for real name.
+- Warm, empathetic, non-judgmental
+- Use CBT, 5-4-3-2-1 grounding, breathing
+- 2-3 sentences per reply — brief, present
+- Emotion first, then gentle reflection
+- Never diagnose or prescribe
+- Crisis signals → share: iCall India 9152987821 / text HOME to 741741
+Tone: gentle, grounded, present.`;
+}
+
 async function callRoboAI(userText) {
-  if (roboIsTyping) return;
-  roboIsTyping = true;
+  if (roboTyping) return;
+  roboTyping = true;
+  roboHistory.push({ role:'user', content:userText });
 
-  // Add user message to history
-  roboHistory.push({ role: 'user', content: userText });
+  const msgs = document.getElementById('roboMessages');
 
-  // Create typing bubble
-  const msgs     = document.getElementById('roboMessages');
+  // Typing bubble
   const typingEl = document.createElement('div');
   typingEl.className = 'msg msg-them';
-  typingEl.innerHTML = `<div class="msg-bubble robo-bubble" id="robo-streaming" style="min-width:60px">
-    <span class="robo-dot">·</span><span class="robo-dot">·</span><span class="robo-dot">·</span>
-  </div>`;
+  typingEl.id = '_roboTyping';
+  typingEl.innerHTML = `<div class="msg-bubble robo-bubble" id="_roboBubble" style="letter-spacing:3px">● ● ●</div>`;
   msgs.appendChild(typingEl);
   msgs.scrollTop = msgs.scrollHeight;
 
-  // Animate the dots while waiting
-  const dotAnim = setInterval(() => {
-    const dots = typingEl.querySelectorAll('.robo-dot');
-    dots.forEach((d, i) => {
-      setTimeout(() => {
-        d.style.opacity = d.style.opacity === '0.2' ? '1' : '0.2';
-      }, i * 150);
-    });
-  }, 600);
+  let dotState = 0;
+  const dotInterval = setInterval(() => {
+    const b = document.getElementById('_roboBubble');
+    if (b) b.textContent = ['● ○ ○','○ ● ○','○ ○ ●'][dotState++%3];
+  }, 400);
 
   try {
-    const response = await fetch('/api/robo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch('/api/robo', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        messages: [
-          { role: 'system', content: buildSystemPrompt() },
-          ...roboHistory,
-        ],
-      }),
+        messages: [{role:'system',content:buildSystemPrompt()}, ...roboHistory]
+      })
     });
 
-    clearInterval(dotAnim);
+    clearInterval(dotInterval);
+    if (!res.ok) throw new Error('HTTP '+res.status);
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    // Stream the response token by token into the bubble
-    const bubble = document.getElementById('robo-streaming');
-    bubble.innerHTML = '';
+    const bubble = document.getElementById('_roboBubble');
+    bubble.textContent = '';
     bubble.removeAttribute('id');
 
-    const reader  = response.body.getReader();
+    const reader  = res.body.getReader();
     const decoder = new TextDecoder();
     let fullText  = '';
 
     while (true) {
-      const { done, value } = await reader.read();
+      const {done,value} = await reader.read();
       if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
-
-      for (const line of lines) {
+      for (const line of decoder.decode(value,{stream:true}).split('\n')) {
         if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6).trim();
-        if (data === '[DONE]') break;
-
+        const raw = line.slice(6).trim();
+        if (raw==='[DONE]') break;
         try {
-          const json  = JSON.parse(data);
-          const token = json.choices?.[0]?.delta?.content;
-          if (token) {
-            fullText += token;
-            bubble.textContent = fullText;
-            msgs.scrollTop = msgs.scrollHeight;
-          }
-        } catch {
-          // Partial JSON chunk — skip
-        }
+          const token = JSON.parse(raw).choices?.[0]?.delta?.content;
+          if (token) { fullText+=token; bubble.textContent=fullText; msgs.scrollTop=msgs.scrollHeight; }
+        } catch {}
       }
     }
 
-    // Add timestamp after streaming completes
-    const timeEl = document.createElement('span');
-    timeEl.className = 'msg-time';
-    timeEl.textContent = timeNow();
-    typingEl.appendChild(timeEl);
+    const t = document.createElement('span');
+    t.className='msg-time'; t.textContent=timeNow();
+    typingEl.appendChild(t);
 
-    // Save to history for context on next message
     if (fullText) {
-      roboHistory.push({ role: 'assistant', content: fullText });
-      // Keep history from growing too large — last 20 exchanges
-      if (roboHistory.length > 40) roboHistory.splice(0, 2);
+      roboHistory.push({role:'assistant',content:fullText});
+      if (roboHistory.length>40) roboHistory.splice(0,2);
+      updateFlowerFromTone();
     }
 
-  } catch (err) {
-    clearInterval(dotAnim);
-    console.error('Robo AI error:', err);
-
-    // Graceful fallback — remove typing bubble, show error
-    typingEl.remove();
-    appendRoboMsg('them', "I'm having a little trouble connecting right now. Take a breath — I'll be back in a moment. 🌿");
-
-    // Remove the user message from history so they can retry
+  } catch(err) {
+    clearInterval(dotInterval);
+    console.error('Robo error:', err.message);
+    document.getElementById('_roboTyping')?.remove();
+    appendMsg('roboMessages','them',"I'm having a little trouble right now. Take a breath — try again in a moment 🌿",true);
     roboHistory.pop();
   }
-
-  roboIsTyping = false;
+  roboTyping = false;
 }
 
-// ─────────────────────────────────────────
+async function updateFlowerFromTone() {
+  if (roboHistory.length < 2) return;
+  try {
+    const res = await fetch('/api/tone', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ messages: roboHistory.slice(-8) })
+    });
+    if (!res.ok) return;
+    const {score} = await res.json();
+    if (typeof score==='number') {
+      const blended = Math.round(flowerTarget*0.35 + score*0.65);
+      pulseFlower(blended>=flowerTarget?'up':'down');
+      setFlowerTarget(blended);
+    }
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════════
 // SOCKET.IO
-// ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════
 let socket = null;
 
 function initSocket(myId) {
-  try {
-    socket = io({
-      autoConnect: false,
-      reconnectionAttempts: 5,
-      timeout: 8000,
-    });
+  socket = io({ autoConnect:false });
 
-    socket.on('connect', () => {
-      console.log('✅ Socket connected:', socket.id);
-      socketReady = true;
-      setStatus('● Connected');
-      socket.emit('patient_join', {
-        patientId: myId,
-        alias:     MY_ALIAS,
-        color:     COLORS[colorIdx],
-      });
-      document.getElementById('therapistCount').textContent = 'checking…';
-    });
+  socket.on('connect', () => {
+    console.log('✅ Patient connected:', socket.id);
+    socketReady = true;
+    setStatus('● Connected');
+    socket.emit('patient_join', { patientId:myId, alias:MY_ALIAS, color:myColor });
+  });
 
-    socket.on('connect_error', (err) => {
-      console.warn('⚠️ Socket connect_error (may retry):', err.message);
-    });
+  socket.on('disconnect', () => { socketReady=false; setStatus('○ Reconnecting…'); });
 
-    socket.on('disconnect', (reason) => {
-      console.warn('Socket disconnected:', reason);
-      socketReady = false;
-      setStatus('○ Reconnecting…');
-      if (reason === 'transport close' || reason === 'io server disconnect') {
-        document.getElementById('therapistCount').textContent = 'unavailable';
-      }
-    });
+  socket.on('connect_error', (e) => {
+    console.warn('Socket err:', e.message);
+    socketReady=false; setStatus('○ Connection failed');
+  });
 
-    socket.on('therapist_count', ({ count }) => {
-      therapistsOnline = count;
-      const badge = document.getElementById('therapistCount');
-      badge.textContent = count > 0 ? `${count} online` : 'none online';
-    });
+  socket.on('therapist_count', ({count}) => {
+    therapistsOnline = count;
+    document.getElementById('therapistCount').textContent = count>0?`${count} online`:'none online';
+  });
 
-    socket.on('queue_position', ({ position }) => {
-      setStatus(`● Queue: #${position}`);
-    });
+  socket.on('queue_position', ({position}) => setStatus(`● Queue: #${position}`));
 
-    socket.on('session_accepted', () => {
-      inHumanSession = true;
-      setStatus('● In session');
-      if (!humanChatOpen) openChat('human');
-      appendHumanMsg('system', 'A listener has joined. This space is safe and private 🌿');
-    });
+  socket.on('session_accepted', () => {
+    inHumanSession=true; setStatus('● In session');
+    if (!humanChatOpen) openHumanChat();
+    appendMsg('humanMessages','system','A listener has joined. This space is safe and private 🌿');
+  });
 
-    socket.on('therapist_message', ({ message }) => {
-      appendHumanMsg('them', message);
-    });
+  socket.on('therapist_message', ({message}) => appendMsg('humanMessages','them',message));
 
-    socket.on('session_ended_by_therapist', () => {
-      inHumanSession = false;
-      appendHumanMsg('system', 'Your listener has ended the session. Take care 🌿');
-      setStatus('● Connected');
-    });
+  socket.on('session_ended_by_therapist', () => {
+    inHumanSession=false; setStatus('● Connected');
+    appendMsg('humanMessages','system','Your listener ended the session. Take care 🌿');
+  });
 
-    socket.connect();
-
-  } catch(e) {
-    console.warn('Socket.IO not available, running offline:', e);
-    socketReady = false;
-    setStatus('● Offline mode');
-    document.getElementById('therapistCount').textContent = 'unavailable';
-  }
+  socket.connect();
 }
 
-// ─── Init ───
-(async () => {
-  MY_ID = await hashAlias(MY_ALIAS);
-  initSocket(MY_ID);
-})();
+(async () => { MY_ID = await hashAlias(MY_ALIAS); initSocket(MY_ID); })();
 
-// ─────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────
-function setStatus(text) {
-  document.getElementById('connStatus').textContent = text;
-}
+function setStatus(t) { document.getElementById('connStatus').textContent = t; }
 
-// ─────────────────────────────────────────
-// TOGGLE CHAT BUTTONS
-// ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+// HUMAN CHAT
+// ═══════════════════════════════════════════════════
 document.getElementById('humanToggle').addEventListener('click', () => {
-  const win = document.getElementById('humanChat');
-  if (win.classList.contains('hidden')) openChat('human');
-  else closeChat('human');
+  document.getElementById('humanChat').classList.contains('hidden') ? openHumanChat() : closeHumanChat();
 });
 
-document.getElementById('roboToggle').addEventListener('click', () => {
-  const win = document.getElementById('roboChat');
-  if (win.classList.contains('hidden')) openChat('robo');
-  else closeChat('robo');
-});
-
-function openChat(type) {
-  const win = document.getElementById(type + 'Chat');
-  const btn = document.getElementById(type + 'Toggle');
-  win.classList.remove('hidden');
-
-  if (type === 'human') {
-    humanChatOpen = true;
-    btn.innerHTML = '<span class="btn-icon">✕</span> Close Chat';
-    if (!socketReady) {
-      appendHumanMsg('system', "Can't reach server right now. Try Robo below — it's always available 🤖");
-    } else if (!inHumanSession) {
-      socket.emit('patient_queue', {
-        patientId: MY_ID,
-        alias:     MY_ALIAS,
-        color:     COLORS[colorIdx],
-        mood:      currentMoodLabel || null,
-      });
-      if (therapistsOnline > 0) {
-        appendHumanMsg('system', "Looking for a listener… you'll be connected shortly 🌿");
-      } else {
-        appendHumanMsg('system', "No therapists online right now. You've been added to the queue — try Robo in the meantime 🤖");
-      }
-    }
-  } else {
-    roboChatOpen = true;
-    btn.innerHTML = '<span class="btn-icon">✕</span> Close Robo';
-
-    // First-time greeting from Robo via AI
-    if (roboHistory.length === 0) {
-      const greetings = [
-        "Hi there. This is a safe, private space — no names, no records. What's on your mind today?",
-        "Hey. I'm Robo — I'm here to listen, no judgment. How are you feeling right now?",
-        "Welcome. Take your time. What would you like to talk about today?",
-      ];
-      const greeting = greetings[Math.floor(Math.random() * greetings.length)];
-      appendRoboMsg('them', greeting);
-      // Seed history so GPT-4o has context
-      roboHistory.push({ role: 'assistant', content: greeting });
-    }
+function openHumanChat() {
+  document.getElementById('humanChat').classList.remove('hidden');
+  document.getElementById('humanToggle').innerHTML = '<span class="btn-icon">✕</span> Close Chat';
+  humanChatOpen = true;
+  if (!socketReady) {
+    appendMsg('humanMessages','system',"Can't reach server. Try Robo below 🤖");
+    return;
   }
-
-  setTimeout(() => {
-    const m = document.getElementById(type + 'Messages');
-    if (m) m.scrollTop = m.scrollHeight;
-  }, 50);
+  if (!inHumanSession) {
+    socket.emit('patient_queue', { patientId:MY_ID, alias:MY_ALIAS, color:myColor, mood:currentMoodLabel||null });
+    appendMsg('humanMessages','system', therapistsOnline>0
+      ? "Looking for a listener… connecting shortly 🌿"
+      : "No therapists online right now — added to queue. Try Robo in the meantime 🤖");
+  }
+  setTimeout(()=>{ const m=document.getElementById('humanMessages'); if(m) m.scrollTop=m.scrollHeight; },50);
 }
 
-function closeChat(type) {
-  const win = document.getElementById(type + 'Chat');
-  const btn = document.getElementById(type + 'Toggle');
-  win.classList.add('hidden');
-  if (type === 'human') {
-    humanChatOpen = false;
-    btn.innerHTML = '<span class="btn-icon">💬</span> Start Conversation';
-  } else {
-    roboChatOpen = false;
-    btn.innerHTML = '<span class="btn-icon">🤖</span> Talk to Robo';
-  }
+function closeHumanChat() {
+  document.getElementById('humanChat').classList.add('hidden');
+  document.getElementById('humanToggle').innerHTML = '<span class="btn-icon">💬</span> Start Conversation';
+  humanChatOpen = false;
 }
 
-// ─────────────────────────────────────────
-// SEND MESSAGES
-// ─────────────────────────────────────────
-document.getElementById('humanSendBtn').addEventListener('click', () => sendMsg('human'));
-document.getElementById('roboSendBtn').addEventListener('click',  () => sendMsg('robo'));
-document.getElementById('humanInput').addEventListener('keydown', e => { if(e.key==='Enter') sendMsg('human'); });
-document.getElementById('roboInput').addEventListener('keydown',  e => { if(e.key==='Enter') sendMsg('robo'); });
+document.getElementById('humanSendBtn').addEventListener('click', sendHumanMsg);
+document.getElementById('humanInput').addEventListener('keydown', e => { if(e.key==='Enter') sendHumanMsg(); });
 
-function sendMsg(type) {
-  const input = document.getElementById(type + 'Input');
+function sendHumanMsg() {
+  const input = document.getElementById('humanInput');
   const text  = input.value.trim();
   if (!text) return;
   input.value = '';
-
-  if (type === 'robo') {
-    // Show user's message immediately
-    appendRoboMsg('me', text);
-    // Call GPT-4o — streams response into a bubble
-    callRoboAI(text);
-
-  } else {
-    appendHumanMsg('me', text);
-    if (!socketReady || !inHumanSession) {
-      setTimeout(() => {
-        appendHumanMsg('system', 'Waiting for a listener to connect… your message is saved.');
-      }, 400);
-      return;
-    }
-    socket.emit('patient_message', {
-      patientId: MY_ID,
-      alias:     MY_ALIAS,
-      message:   text,
-    });
+  appendMsg('humanMessages','me',text);
+  if (!socketReady || !inHumanSession) {
+    setTimeout(()=>appendMsg('humanMessages','system','Waiting for a listener to connect…'),400);
+    return;
   }
+  socket.emit('patient_message', { patientId:MY_ID, alias:MY_ALIAS, message:text });
 }
 
-// ─────────────────────────────────────────
-// APPEND MESSAGES
-// ─────────────────────────────────────────
-function appendHumanMsg(side, text) {
-  const msgs = document.getElementById('humanMessages');
-  if (side === 'system') {
-    const d = document.createElement('div');
-    d.style.cssText = 'text-align:center;font-size:12px;color:var(--text-soft);font-style:italic;padding:8px 0;line-height:1.5;';
-    d.textContent = text;
-    msgs.appendChild(d);
-  } else {
-    const d = document.createElement('div');
-    d.className = `msg msg-${side === 'me' ? 'me' : 'them'}`;
-    d.innerHTML = `<div class="msg-bubble">${escHtml(text)}</div><span class="msg-time">${timeNow()}</span>`;
-    msgs.appendChild(d);
+// ═══════════════════════════════════════════════════
+// ROBO CHAT
+// ═══════════════════════════════════════════════════
+document.getElementById('roboToggle').addEventListener('click', () => {
+  document.getElementById('roboChat').classList.contains('hidden') ? openRoboChat() : closeRoboChat();
+});
+
+function openRoboChat() {
+  document.getElementById('roboChat').classList.remove('hidden');
+  document.getElementById('roboToggle').innerHTML = '<span class="btn-icon">✕</span> Close Robo';
+  roboChatOpen = true;
+  if (roboHistory.length === 0) {
+    const greets = [
+      "Hi there 🌿 This is a safe, private space — no names, no records. What's on your mind?",
+      "Hey. I'm Robo — I'm here to listen, no judgment. How are you feeling right now?",
+      "Welcome. Take your time. What would you like to talk about today?",
+    ];
+    const g = greets[Math.floor(Math.random()*greets.length)];
+    appendMsg('roboMessages','them',g,true);
+    roboHistory.push({role:'assistant',content:g});
   }
-  msgs.scrollTop = msgs.scrollHeight;
+  setTimeout(()=>{ const m=document.getElementById('roboMessages'); if(m) m.scrollTop=m.scrollHeight; },50);
 }
 
-function appendRoboMsg(side, text) {
-  const msgs = document.getElementById('roboMessages');
-  const d = document.createElement('div');
-  d.className = `msg msg-${side === 'me' ? 'me' : 'them'}`;
-  d.innerHTML = `<div class="msg-bubble ${side==='them'?'robo-bubble':''}">${escHtml(text)}</div><span class="msg-time">${timeNow()}</span>`;
-  msgs.appendChild(d);
-  msgs.scrollTop = msgs.scrollHeight;
+function closeRoboChat() {
+  document.getElementById('roboChat').classList.add('hidden');
+  document.getElementById('roboToggle').innerHTML = '<span class="btn-icon">🤖</span> Talk to Robo';
+  roboChatOpen = false;
 }
 
-// ─────────────────────────────────────────
+document.getElementById('roboSendBtn').addEventListener('click', sendRoboMsg);
+document.getElementById('roboInput').addEventListener('keydown', e => { if(e.key==='Enter') sendRoboMsg(); });
+
+function sendRoboMsg() {
+  const input = document.getElementById('roboInput');
+  const text  = input.value.trim();
+  if (!text || roboTyping) return;
+  input.value = '';
+  appendMsg('roboMessages','me',text);
+  callRoboAI(text);
+}
+
+// ═══════════════════════════════════════════════════
 // MOOD MODAL
-// ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════
 document.getElementById('moodBtn').addEventListener('click', () =>
   document.getElementById('moodModal').classList.remove('hidden'));
 
-function closeMood() {
-  document.getElementById('moodModal').classList.add('hidden');
-}
+function closeMood() { document.getElementById('moodModal').classList.add('hidden'); }
 
 function selectMood(emoji, label, score) {
   closeMood();
   currentMoodLabel = `${emoji} ${label}`;
-  currentMoodScore = score; // ← now stored so Robo system prompt picks it up
+  currentMoodScore = score;
   document.getElementById('moodBtn').textContent = currentMoodLabel;
-  document.getElementById('centerScore').textContent = score + '%';
+  if (socketReady && MY_ID)
+    socket.emit('mood_update', { patientId:MY_ID, score, label:currentMoodLabel });
+  const prev = flowerTarget;
+  setFlowerTarget(score);
+  pulseFlower(score>=prev?'up':'down');
+}
 
-  if (socketReady && MY_ID) {
-    socket.emit('mood_update', { patientId: MY_ID, score, label: currentMoodLabel });
+// ═══════════════════════════════════════════════════
+// SHARED MSG RENDERER
+// ═══════════════════════════════════════════════════
+function appendMsg(containerId, side, text, isRobo=false) {
+  const msgs = document.getElementById(containerId);
+  if (!msgs) return;
+  if (side==='system') {
+    const d = document.createElement('div');
+    d.style.cssText='text-align:center;font-size:12px;color:var(--text-soft);font-style:italic;padding:8px 0;line-height:1.5;';
+    d.textContent=text; msgs.appendChild(d);
+  } else {
+    const d = document.createElement('div');
+    d.className=`msg msg-${side==='me'?'me':'them'}`;
+    d.innerHTML=`<div class="msg-bubble ${(side==='them'&&isRobo)?'robo-bubble':''}">${esc(text)}</div><span class="msg-time">${timeNow()}</span>`;
+    msgs.appendChild(d);
   }
-
-  const msgs = {
-    30:{icon:'🌧️', text:"It's okay to not be okay. Reaching out is already a step forward."},
-    45:{icon:'😶', text:"Numbness can feel heavy. One breath at a time — your flower is still here."},
-    62:{icon:'🌤️', text:"You're okay — and that's enough. Small moments add up."},
-    75:{icon:'😌', text:"You're calm and grounded. That peace is real. Keep going."},
-    90:{icon:'🌸', text:"You're thriving! Your wellness garden is in full bloom."},
-  };
-  const m = msgs[score];
-  document.getElementById('statusMsg').innerHTML =
-    `<span class="status-icon">${m.icon}</span><p>${m.text}</p>`;
-  updateFlower(score);
+  msgs.scrollTop=msgs.scrollHeight;
 }
 
-// ─────────────────────────────────────────
-// FLOWER & METRICS
-// ─────────────────────────────────────────
-function updateFlower(score) {
-  document.querySelectorAll('.petal').forEach(p => {
-    const base = 30 + 35 * (score/100) * (0.75 + Math.random()*0.5);
-    p.setAttribute('ry', Math.round(base));
-  });
-  document.querySelectorAll('.metric-bar').forEach((bar, i) => {
-    const bases = [0.78,0.65,0.55,0.82,0.60,0.70];
-    const val   = Math.min(100, Math.round(bases[i] * score / 72 * 100));
-    bar.style.width = val + '%';
-    const vEl = bar.closest('.metric-row')?.querySelector('.metric-val');
-    if (vEl) vEl.textContent = val + '%';
-  });
-}
+function esc(t){ return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function timeNow(){ return new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}); }
 
 window.addEventListener('load', () => {
+  renderFlower(flowerScore);
   setTimeout(() => {
     document.querySelectorAll('.metric-bar').forEach(bar => {
-      const t = bar.style.width; bar.style.width = '0%';
-      setTimeout(() => { bar.style.width = t; }, 100);
+      const t=bar.style.width; bar.style.width='0%';
+      setTimeout(()=>bar.style.width=t, 100);
     });
   }, 300);
 });
-
-// ─────────────────────────────────────────
-// UTILS
-// ─────────────────────────────────────────
-function escHtml(t) {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-function timeNow() {
-  return new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
-}
