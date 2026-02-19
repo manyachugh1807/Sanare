@@ -66,10 +66,39 @@ setInterval(() => {
   }
 }, 1000);
 
-const revealButtons = document.querySelectorAll("button.reveal");
+document.addEventListener("DOMContentLoaded", () => {
 
-revealButtons.forEach(button => {
-  button.addEventListener("click", () => {
-    window.location.href = "dashboard.html";
+  const revealButtons = document.querySelectorAll("button.reveal");
+
+  revealButtons.forEach(button => {
+    button.addEventListener("click", async () => {
+
+      try {
+        const response = await fetch("/create-token", {
+          method: "POST"
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          console.log("Token Created:", data.txId);
+
+          // Print on page
+          document.getElementById("tokenOutput").innerText =
+            "Token Created!\nTX ID: " + data.txId;
+
+        } else {
+          document.getElementById("tokenOutput").innerText =
+            "Error: " + data.error;
+        }
+
+      } catch (error) {
+        document.getElementById("tokenOutput").innerText =
+          "Server Error!";
+      }
+
+    });
   });
+
 });
+

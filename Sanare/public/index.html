@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sanare — Find Your Calm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../Css/style.css">
+</head>
+
+<body>
+
+  <!-- Custom cursor -->
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-ring" id="cursorRing"></div>
+
+  <!-- NAV -->
+  <nav>
+    <span class="nav-logo">Sanare</span>
+    <ul class="nav-links">
+      <li><a href="#">Journal</a></li>
+      <li><a href="#">Meditate</a></li>
+      <li><a href="#">Resources</a></li>
+      <li><a href="#">Community</a></li>
+    </ul>
+    <button class="nav-cta reveal">Dashboard</button>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-bg-circle"></div>
+    <div class="hero-bg-circle"></div>
+
+    <div class="hero-content">
+      <span class="hero-eyebrow">Your peaceful space</span>
+      <h1 class="hero-title">
+        Where calm<br>
+        <em>always</em> finds<br>
+        you.
+      </h1>
+      <p class="hero-desc">
+        Sanare is a gentle companion for your mind — a quiet corner to breathe,
+        journal, and return to yourself when the world feels too loud.
+      </p>
+      <div class="hero-actions">
+        <button class="btn-primary reveal">Begin Your Journey</button>
+        <a href="#features" class="btn-ghost">
+          Explore
+          <span class="btn-ghost-arrow">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="orb-container">
+        <div class="orb orb-ring-2"></div>
+        <div class="orb orb-ring"></div>
+        <div class="orb orb-main"></div>
+        <div class="orb orb-dot"></div>
+        <span class="float-tag">🧘 Guided Meditation</span>
+        <span class="float-tag">📝 Daily Journal</span>
+        <span class="float-tag">🌿 Mood Tracking</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section-cards" id="features">
+    <div class="section-header reveal">
+      <span class="section-label">How Sanare helps</span>
+      <h2 class="section-title">Tools for a <em>quieter</em> mind</h2>
+    </div>
+    <div class="cards-grid">
+      <div class="card reveal">
+        <div class="card-icon">🌬️</div>
+        <h3>Breathwork</h3>
+        <p>Follow guided breathing patterns proven to calm the nervous system within minutes. Box breathing, 4-7-8, and more.</p>
+      </div>
+      <div class="card reveal" style="transition-delay: 0.1s">
+        <div class="card-icon">📓</div>
+        <h3>Gentle Journaling</h3>
+        <p>Thoughtful prompts to help you process emotions and find clarity — no blank page anxiety, just a warm place to begin.</p>
+      </div>
+      <div class="card reveal" style="transition-delay: 0.2s">
+        <div class="card-icon">🌙</div>
+        <h3>Sleep Stories</h3>
+        <p>Wind down with calming narratives and soft soundscapes that ease your mind into restful, deep sleep.</p>
+      </div>
+      <div class="card reveal" style="transition-delay: 0.3s">
+        <div class="card-icon">🌱</div>
+        <h3>Mood Garden</h3>
+        <p>Track your emotional patterns over time through a beautiful visual garden that grows with you each day.</p>
+      </div>
+      <div class="card reveal" style="transition-delay: 0.4s">
+        <div class="card-icon">🎵</div>
+        <h3>Soundscapes</h3>
+        <p>Immersive ambient sounds — rain on leaves, ocean tides, forest mornings — designed to anchor you in the present.</p>
+      </div>
+      <div class="card reveal" style="transition-delay: 0.5s">
+        <div class="card-icon">💬</div>
+        <h3>Reflection Prompts</h3>
+        <p>Daily gentle nudges to check in with yourself, celebrate small wins, and nurture gratitude and self-compassion.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- BREATHING EXERCISE -->
+  <section class="section-breathe">
+    <span class="breathe-label reveal">Take a moment</span>
+    <h2 class="breathe-title reveal">
+      Pause.<br>
+      <em>Just breathe.</em>
+    </h2>
+    <p class="breathe-sub reveal">Follow the circle. Inhale as it expands. Exhale as it contracts.</p>
+
+    <div class="breathe-widget reveal">
+      <div class="breathe-ring-outer"></div>
+      <div class="breathe-ring-inner"></div>
+      <div class="breathe-circle" id="breatheCircle">
+        <span class="breathe-circle-text" id="breatheText">Inhale</span>
+        <span class="breathe-circle-count" id="breatheCount">4</span>
+      </div>
+    </div>
+    <p class="breathe-instruction reveal" id="breatheInstruction">4 counts in · 4 counts hold · 4 counts out</p>
+  </section>
+
+  <!-- SCROLL CARDS -->
+  <section class="section-scroll">
+    <div class="scroll-header">
+      <span class="section-label reveal">Your daily ritual</span>
+      <h2 class="section-title reveal">Moments that <em>restore</em></h2>
+    </div>
+    <div class="scroll-track">
+      <div class="scroll-card">
+        <span class="scroll-card-num">01</span>
+        <span class="scroll-card-tag">Morning</span>
+        <h3>Wake with intention</h3>
+        <p>Begin each morning with a 5-minute mindfulness check-in to set a gentle, purposeful tone for your day.</p>
+      </div>
+      <div class="scroll-card">
+        <span class="scroll-card-num">02</span>
+        <span class="scroll-card-tag">Midday</span>
+        <h3>A breath between storms</h3>
+        <p>Take a 3-minute pause in the middle of your day. Reset, ground yourself, and return to what matters.</p>
+      </div>
+      <div class="scroll-card">
+        <span class="scroll-card-num">03</span>
+        <span class="scroll-card-tag">Evening</span>
+        <h3>Journal what moved you</h3>
+        <p>Reflect on the day — three things that brought you warmth, one thing to release, one hope for tomorrow.</p>
+      </div>
+      <div class="scroll-card">
+        <span class="scroll-card-num">04</span>
+        <span class="scroll-card-tag">Night</span>
+        <h3>Ease into stillness</h3>
+        <p>Let a sleep story carry you away from the day's noise and into a space of genuine rest and restoration.</p>
+      </div>
+      <div class="scroll-card">
+        <span class="scroll-card-num">05</span>
+        <span class="scroll-card-tag">Anytime</span>
+        <h3>SOS Calm Mode</h3>
+        <p>When anxiety spikes, one tap activates a curated 90-second intervention to bring your nervous system home.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTE -->
+  <section class="section-quote">
+    <div class="quote-mark reveal">"</div>
+    <blockquote class="reveal">
+      You don't have to control your thoughts. You just have to stop letting them control you.
+    </blockquote>
+    <span class="quote-author reveal">Dan Millman</span>
+  </section>
+
+  <!-- CTA -->
+  <section class="section-cta">
+    <div class="cta-pill reveal">Free to begin</div>
+    <h2 class="cta-title reveal">
+      Your quieter life<br>
+      <em>starts here.</em>
+    </h2>
+    <p class="cta-sub reveal">
+      No subscriptions required to begin. Just you, your breath, and a space
+      that holds you gently.
+    </p>
+    <button class="btn-primary reveal" id="open-sanare-btn">Open Sanare — Start Breathing Free</button>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <span class="footer-logo">Sanare</span>
+    <span class="footer-text">© 2025 Sanare. A gentle space for calmer minds.</span>
+  </footer>
+
+  <script src="../js/script.js"></script>
+</body>
+</html>
